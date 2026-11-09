@@ -175,13 +175,30 @@ function boot() {
       box(xx,yy-wh/2,.092,1.7,.085,.19,0xe2ded0,front);
     }
   }
+  const schoolDoor={x:22,z:-2.5,y:.45,width:2.55,scaleX:.417,scaleZ:.53};
+  const schoolShell=[], doorLeaves=[];
+  let doorOpening=0;
   function building(x,z,w,d,h,gray=false) {
     buildings.push({x,z,w,d,h});
     const face=gray?concrete:brick(w,h);
     const side=gray?face:brick(d,h);
-    box(x,h/2,z,w,h,d,[side,side,mat(0x555a5b),face,face,face]);
+    if(x===schoolDoor.x) {
+      const t=.16, front=z+d/2, wing=(w-schoolDoor.width)/2;
+      for(const sign of [-1,1]) {
+        const wallX=x+sign*(w-t)/2;
+        box(wallX,h/2,z,t,h,d,side);
+        schoolShell.push({x:wallX,z,w:t,d,h});
+        const jambX=x+sign*(schoolDoor.width+wing)/2;
+        box(jambX,h/2,front-t/2,wing,h,t,face);
+        schoolShell.push({x:jambX,z:front-t/2,w:wing,d:t,h});
+      }
+      box(x,h/2,z-d/2+t/2,w,h,t,face);
+      schoolShell.push({x,z:z-d/2+t/2,w,d:t,h});
+      box(x,(h+2.83)/2,front-t/2,schoolDoor.width,h-2.83,t,face);
+      schoolShell.push({x,z:front-t/2,w:schoolDoor.width,d:t,h,bottom:2.83});
+    } else box(x,h/2,z,w,h,d,[side,side,mat(0x555a5b),face,face,face]);
     box(x,h+.09,z,w+.26,.21,d+.26,gray?0x414c52:0x956e64);
-    box(x,.23,z,w+.07,.46,d+.07,0x7c7c70);
+    if(x!==schoolDoor.x)box(x,.23,z,w+.07,.46,d+.07,0x7c7c70);
     facadeWindows(x,z+d/2,w,h,0,gray);
     facadeWindows(x,z-d/2,w,h,Math.PI,gray);
     facadeWindows(x+w/2,z,d,h,Math.PI/2,gray);
@@ -197,10 +214,26 @@ function boot() {
   building(-36,-31,15,10,8.8);
   building(-39,-43,11,14,8.5);
   function entrance(x,z,letters) {
-    box(x,1.35,z,4.9,2.6,.16,0xd2d4ca);
-    for(let i=-2;i<=2;i++) {
-      box(x+i*.89,1.37,z+.11,.77,2.32,.08,0x344c50);
-      box(x+i*.89,1.06,z+.17,.74,.07,.04,0xe4e3d5);
+    if(x===schoolDoor.x) {
+      const leafWidth=schoolDoor.width/2;
+      box(x,2.78,z+.05,schoolDoor.width+.18,.11,.14,0xd2d4ca);
+      for(const side of [-1,1]) {
+        box(x+side*(leafWidth+.035),1.62,z+.05,.085,2.34,.14,0xd2d4ca);
+        const hinge=new T.Group();
+        hinge.position.set(x+side*leafWidth,schoolDoor.y,z+.035);
+        scene.add(hinge);doorLeaves.push({hinge,side});
+        const cx=-side*leafWidth/2;
+        box(cx,1.13,0,leafWidth-.035,2.23,.075,0xd2d4ca,hinge);
+        box(cx,1.42,0,leafWidth-.16,1.39,.084,0x42616a,hinge);
+        box(cx,.58,0,leafWidth-.16,.23,.084,0x819492,hinge);
+        box(cx-side*.36,1.04,0,.27,.052,.15,0xe8e8dc,hinge);
+      }
+    } else {
+      box(x,1.35,z,4.9,2.6,.16,0xd2d4ca);
+      for(let i=-2;i<=2;i++) {
+        box(x+i*.89,1.37,z+.11,.77,2.32,.08,0x344c50);
+        box(x+i*.89,1.06,z+.17,.74,.07,.04,0xe4e3d5);
+      }
     }
     box(x,2.84,z+.84,5.8,.15,2.18,0x7f9192);
     for(const offset of [-2.65,2.65]) box(x+offset,1.39,z+1.85,.09,2.78,.09,0xd8dbd0);
@@ -266,7 +299,7 @@ function boot() {
     return hill.h*Math.max(0,1-radius*radius)**2;
   }
   function groundAt(x,z) {
-    if(x>200)return interior.stairHeight(x,z);
+    if(inside(x,z))return interior.stairHeight(x,z);
     let height=.03;
     for(const hill of hills)height=Math.max(height,hillHeight(hill,x,z)+.03);
     for(const entranceX of [-29,22]) {
@@ -387,17 +420,30 @@ function boot() {
   const movement=new T.Vector3(), direction=new T.Vector3();
   const canvas=renderer.domElement;
   const map=$('radar').getContext('2d');
-  const interior=buildInterior(T,scene,box,surface,texture);
+  const interior=buildInterior(T,scene,box,surface,texture,schoolDoor);
   const outdoorDoor={x:22,z:.65};
   const entranceMarker=mesh(new T.RingGeometry(.65,.73,32),
     new T.MeshBasicMaterial({color:0xc8ed80,side:T.DoubleSide}),22,.065,2.05);
   entranceMarker.rotation.x=-Math.PI/2;
   entranceMarker.castShadow=false;
-  const inside=(x)=>x>200;
+  function inside(x,z,y=0) {
+    return x>200 || (Math.abs(x-schoolDoor.x)<5.91 && z<schoolDoor.z && z>schoolDoor.z-14.94 && y<4.3);
+  }
+  const solidBuildings=buildings.filter(b=>b.x!==schoolDoor.x);
+  const exteriorColliders=[...solidBuildings,...schoolShell];
+  const groundColliders=exteriorColliders.filter(b=>!b.bottom);
+  function updateDoors(dt) {
+    const {x,y,z}=player.position;
+    const near=Math.abs(x-schoolDoor.x)<2.25 && Math.abs(z-schoolDoor.z)<2.45 && y<2.8;
+    doorOpening=T.MathUtils.lerp(doorOpening,near?1:0,1-Math.exp(-dt*9));
+    for(const {hinge,side} of doorLeaves)hinge.rotation.y=-side*doorOpening*Math.PI*.51;
+  }
+  function doorBlocked(x,z) {
+    return Math.abs(x-schoolDoor.x)<schoolDoor.width/2 && Math.abs(z-schoolDoor.z)<.3 && doorOpening<.58;
+  }
   const hits=(walls,x,z)=>walls.some(b=>Math.abs(x-b.x)<b.w/2+.38 && Math.abs(z-b.z)<b.d/2+.38);
-  const block=(x,z) => inside(x) ? hits(interior.floorAt(x).walls,x,z) : Math.abs(x)>63 || Math.abs(z)>58 ||
-    buildings.some(b=>Math.abs(x-b.x)<b.w/2+.38 && Math.abs(z-b.z)<b.d/2+.38) ||
-    trees.some(t=>(x-t.x)**2+(z-t.z)**2<.58**2);
+  const block=(x,z) => doorBlocked(x,z) || (inside(x,z) ? hits(interior.floorAt(x).walls,x,z) : Math.abs(x)>63 || Math.abs(z)>58 ||
+    hits(groundColliders,x,z) || trees.some(t=>(x-t.x)**2+(z-t.z)**2<.58**2));
   function roofAt(x,z,y) {
     let height=0;
     for(const b of buildings) {
@@ -407,16 +453,17 @@ function boot() {
     return height;
   }
   function playerBlocked(x,z) {
-    if(inside(x))return block(x,z);
     const y=player.position.y;
+    if(y<2.8 && doorBlocked(x,z))return true;
+    if(inside(x,z,y))return hits(interior.floorAt(x).walls,x,z);
     return Math.abs(x)>63 || Math.abs(z)>58 ||
-      buildings.some(b=>y<b.h+.16 && Math.abs(x-b.x)<b.w/2+.38 && Math.abs(z-b.z)<b.d/2+.38) ||
+      exteriorColliders.some(b=>y>=(b.bottom??0)-.04 && y<b.h+.16 && Math.abs(x-b.x)<b.w/2+.38 && Math.abs(z-b.z)<b.d/2+.38) ||
       trees.some(t=>(x-t.x)**2+(z-t.z)**2<.58**2);
   }
   function toggleClimb() {
     if(climbing){climbing=null;airborne=true;verticalSpeed=0;return;}
     const {x,y,z}=player.position;
-    if(inside(x)||emote||pickupMotion||stamina<8)return;
+    if(inside(x,z,y)||emote||pickupMotion||stamina<8)return;
     let best=.95;
     for(const b of buildings) {
       if(y>=b.h+.10)continue;
@@ -497,7 +544,7 @@ function boot() {
     mesh(new T.ConeGeometry(.068,.30,10),new T.MeshBasicMaterial({color:0x78d8ff}),x,.84,-.22,exhaust).rotation.x=Math.PI;
   }
   function toggleJetpack() {
-    if(inside(player.position.x) || climbing || emote || pickupMotion)return;
+    if(inside(player.position.x,player.position.z,player.position.y) || climbing || emote || pickupMotion)return;
     jetpack=!jetpack;jetRig.visible=jetpack;exhaust.visible=false;
     $('flight').hidden=!jetpack;
     notice(jetpack?'Jetpack equipped · Hold jump to thrust':'Jetpack stowed');
@@ -633,9 +680,7 @@ function boot() {
   function nearbyAction() {
     const {x,z}=player.position;
     const near=point=>Math.hypot(x-point.x,z-point.z)<2.35;
-    if(!inside(x) && near(outdoorDoor))return {label:'Enter school',run:()=>changeArea(true)};
-    if(inside(x) && near(interior.exit))return {label:'Exit to courtyard',run:()=>changeArea(false)};
-    if(inside(x)) {
+    if(inside(x,z,player.position.y)) {
       const floor=interior.floorAt(x);
       const stair=floor.stairs.find(stair=>Math.abs(x-stair.x)<.84 && Math.abs(z-stair.z)<1.1);
       if(stair) {
@@ -649,23 +694,12 @@ function boot() {
   function changeSchoolFloor(index) {
     if(emote)return;
     const floor=interior.floors[index];
-    player.position.set(floor.origin,.03,-6.2);
+    player.position.set(floor.origin,(floor.baseY??0)+.03,floor.spawnZ??-6.2);
     player.rotation.y=0;
     yaw=Math.PI;
     verticalSpeed=0;airborne=false;
     interior.setLighting(floor.origin);
     notice('School · Floor '+(index+1));
-  }
-  function changeArea(enter) {
-    if(emote || airborne)return;
-    if(enter && jetpack)toggleJetpack();
-    audio.ambience(true,enter);
-    interior.setLighting(enter?interior.origin:outdoorDoor.x);
-    player.position.set(enter?interior.origin:outdoorDoor.x,.03,enter?9:3.2);
-    yaw=enter?0:Math.PI;pitch=0;
-    player.rotation.y=enter?Math.PI:0;
-    verticalSpeed=0;airborne=false;
-    notice(enter?'Inside Gedimino gimnazija':'School courtyard');
   }
   function interact() {
     const action=nearbyAction();
@@ -887,7 +921,7 @@ function boot() {
     if(pickupMotion){scene.remove(pickupMotion.model);pickupMotion=null;}
     rig.visible=!firstPerson;
     player.position.set(-9,.03,22);
-    interior.setLighting(player.position.x);
+    interior.setLighting(undefined);
     player.rotation.y=Math.PI;
     yaw=0;pitch=0;stride=0;
     airborne=false;verticalSpeed=0;health=100;stamina=100;recovery=0;exhausted=false;
@@ -914,7 +948,7 @@ function boot() {
     rig.visible=!value || !firstPerson;
     if(!value && emoteOpen)toggleEmotes(false);
     if(value)audio.start();
-    audio.ambience(value,inside(player.position.x));
+    audio.ambience(value,inside(player.position.x,player.position.z,player.position.y));
     $('menu').hidden=value; $('hud').hidden=!value;
     $('start').textContent=value?'Resume game ↗': 'Resume game ↗';
     if(!value) {
@@ -979,17 +1013,18 @@ function boot() {
   const down=(...codes)=>codes.some(code=>keys.has(code)||[...touchKeys.values()].includes(code));
   function drawMap(){
     const {x,z}=player.position;
-    if(inside(x)) {
+    if(inside(x,z,player.position.y)) {
       const floor=interior.floorAt(x);
       const level=interior.floors.indexOf(floor)+1;
       map.fillStyle='#293830';map.fillRect(0,0,158,128);
       map.fillStyle='#9b876c';map.fillRect(23,8,112,112);
       map.fillStyle='#463f33';
-      for(const b of floor.walls)map.fillRect(79+(b.x-floor.origin-b.w/2)*4,64+(b.z-b.d/2)*4,Math.max(1,b.w*4),Math.max(1,b.d*4));
+      const mx=floor.mapX??(value=>value-floor.origin), mz=floor.mapZ??(value=>value);
+      for(const b of floor.walls)map.fillRect(79+mx(b.x-b.w/2)*4,64+mz(b.z-b.d/2)*4,Math.max(1,(mx(b.x+b.w/2)-mx(b.x-b.w/2))*4),Math.max(1,(mz(b.z+b.d/2)-mz(b.z-b.d/2))*4));
       map.font='bold 10px system-ui';map.fillStyle='#f6db8c';
-      for(const stair of floor.stairs)map.fillText(stair.direction>0?'↑':'↓',76+(stair.x-floor.origin)*4,67+stair.z*4);
-      map.fillStyle='#d6fa87';map.beginPath();map.arc(79+(x-floor.origin)*4,64+z*4,3,0,Math.PI*2);map.fill();
-      $('zone').textContent=level>1?'School · Floor '+level:x<interior.origin-5?'Classroom':x>interior.origin+5?(z>5.5?'Restroom':'Assembly hall'):'School corridor';
+      for(const stair of floor.stairs)map.fillText(stair.direction>0?'↑':'↓',76+mx(stair.x)*4,67+mz(stair.z)*4);
+      map.fillStyle='#d6fa87';map.beginPath();map.arc(79+mx(x)*4,64+mz(z)*4,3,0,Math.PI*2);map.fill();
+      $('zone').textContent=level>1?'School · Floor '+level:mx(x)<-5?'Classroom':mx(x)>5?(mz(z)>5.5?'Restroom':'Assembly hall'):'School corridor';
       return;
     }
     const mx=v=>79+v*1.15,mz=v=>63+v*.98;
@@ -1009,15 +1044,15 @@ function boot() {
   }
 
   function cameraDistance(distance,indoors) {
-    for(const b of indoors?interior.floorAt(player.position.x).walls:buildings) {
+    for(const b of indoors?interior.floorAt(player.position.x).walls:exteriorColliders) {
       obstacle.min.set(b.x-b.w/2-.26,b.bottom??(indoors?-1.15:0),b.z-b.d/2-.26);
-      obstacle.max.set(b.x+b.w/2+.26,b.top??(indoors?3.6:b.h+.21),b.z+b.d/2+.26);
+      obstacle.max.set(b.x+b.w/2+.26,b.top??(indoors?(interior.floorAt(player.position.x).baseY??0)+3.6:b.h+.21),b.z+b.d/2+.26);
       if(cameraRay.intersectBox(obstacle,intersection))distance=Math.min(distance,Math.max(.65,target.distanceTo(intersection)-.12));
     }
     return distance;
   }
 
-  let last=performance.now();
+  let last=performance.now(), wasIndoors=false;
   renderer.setAnimationLoop(now=>{
     const dt=Math.min((now-last)/1000,.045); last=now;
     if(active && deathTime) {
@@ -1027,15 +1062,16 @@ function boot() {
       target.copy(player.position).add(direction.set(0,.55,0));
       direction.set(0,.27+progress*.42,1).applyAxisAngle(T.Object3D.DEFAULT_UP,yaw).normalize();
       cameraRay.set(target,direction);
-      const indoors=inside(player.position.x);
+      const indoors=inside(player.position.x,player.position.z,player.position.y);
       const distance=cameraDistance((indoors?2:4)+progress*(indoors?2:7),indoors);
       camera.position.copy(target).addScaledVector(direction,distance);
-      if(indoors)camera.position.y=Math.min(camera.position.y,3.35);
+      if(indoors)camera.position.y=Math.min(camera.position.y,(interior.floorAt(player.position.x).baseY??0)+3.35);
       camera.lookAt(target);
       if(deathTime>=3.1){reset();notice('Back at the courtyard');}
     } else if(active && !packOpen && !emoteOpen) {
       const f=Number(down('KeyW','ArrowUp'))-Number(down('KeyS','ArrowDown'));
       const s=Number(down('KeyD','ArrowRight'))-Number(down('KeyA','ArrowLeft'));
+      updateDoors(dt);
       const thrust=jetpack && !climbing && !emote && !pickupMotion && stamina>0 && player.position.y<32 && down('Space');
       exhaust.visible=thrust;
       if(thrust){airborne=true;stamina=Math.max(0,stamina-14*dt);recovery=.65;}
@@ -1094,7 +1130,10 @@ function boot() {
       updatePickupMotion(dt);
       aimVector.set(0,-Math.sin(pitch),-Math.cos(pitch)).applyAxisAngle(T.Object3D.DEFAULT_UP,yaw);
       aimPoint.copy(player.position);aimPoint.y+=1.66;
-      const indoors=inside(player.position.x);
+      const indoors=inside(player.position.x,player.position.z,player.position.y);
+      interior.setLighting(indoors?player.position.x:undefined);
+      if(indoors && jetpack){jetpack=false;jetRig.visible=false;exhaust.visible=false;$('flight').hidden=true;}
+      if(indoors!==wasIndoors){audio.ambience(true,indoors);wasIndoors=indoors;}
       if(firstPerson && !deathTime) {
         camera.position.copy(aimPoint);
         camera.lookAt(wanted.copy(aimPoint).add(aimVector));
@@ -1105,7 +1144,7 @@ function boot() {
       cameraRay.set(target,direction);
       const distance=cameraDistance(indoors?3.4:camera.aspect<.65?7.2:5.9,indoors);
       camera.position.copy(wanted.copy(target).addScaledVector(direction,distance));
-      if(indoors)camera.position.y=Math.min(camera.position.y,3.35);
+      if(indoors)camera.position.y=Math.min(camera.position.y,(interior.floorAt(player.position.x).baseY??0)+3.35);
       camera.lookAt(wanted.copy(target).addScaledVector(aimVector,3));
       }
       if(effects.dizzy)camera.rotateZ(Math.sin(now*.005)*.095*Math.min(1,effects.dizzy/3));
@@ -1129,7 +1168,7 @@ function boot() {
       camera.position.set(-31+Math.sin(now*.00016)*3,7.2,36);
       camera.lookAt(0,4,-13);
     }
-    sky.update(dt,camera,!inside(camera.position.x),active&&!packOpen&&!emoteOpen);
+    sky.update(dt,camera,!inside(camera.position.x,camera.position.z,camera.position.y),active&&!packOpen&&!emoteOpen);
     renderer.render(scene,camera);
   });
 }

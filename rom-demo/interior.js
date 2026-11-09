@@ -1,4 +1,5 @@
-export function buildInterior(T, scene, box, surface, texture) {
+export function buildInterior(T, scene, box, surface, texture, entrance) {
+  const existingNodes=new Set(scene.children);
   const origin=300;
   const walls=[];
   const lights=[];
@@ -11,7 +12,9 @@ export function buildInterior(T, scene, box, surface, texture) {
   };
   box(origin,-.12,0,28,.24,28,tile);
   box(origin,3.68,0,28,.15,28,0xe9e4d4).castShadow=false;
-  wall(0,-14,28,.25);wall(0,14,28,.25);
+  wall(0,-14,28,.25);
+  const gap=entrance.width/entrance.scaleX;
+  for(const side of [-1,1])wall(side*(14+gap/2)/2,13.66,14-gap/2,.25);
   wall(-14,0,.25,28);wall(14,0,.25,28);
   // Open doorways from the corridor into the classroom, hall and restroom.
   for(const [x,z,w,d] of [[-5,-9,.2,10],[-5,3,.2,10],[-5,12,.2,4],[5,-10,.2,8],[5,1,.2,9],[5,12,.2,4],[9.5,5.5,9,.2]])wall(x,z,w,d);
@@ -31,7 +34,7 @@ export function buildInterior(T, scene, box, surface, texture) {
     const panel=new T.Mesh(new T.PlaneGeometry(w,h),new T.MeshBasicMaterial({map}));
     panel.position.set(origin+x,y,z);panel.rotation.y=turn;scene.add(panel);
   }
-  sign('IŠĖJIMAS',0,2.65,13.85,3.5,.7,Math.PI);
+  sign('IŠĖJIMAS',0,2.65,13.47,3.5,.7,Math.PI);
   sign('KLASĖ',-4.87,2.65,-4,1.6,.46,Math.PI/2);
   sign('AKTŲ SALĖ',4.87,2.65,-5,1.6,.46,-Math.PI/2);
   sign('WC',4.87,2.65,8.35,1.6,.46,-Math.PI/2);
@@ -107,6 +110,17 @@ export function buildInterior(T, scene, box, surface, texture) {
   }
 
   addStairs(floors[0],1);
+  const lobby=new T.Group();
+  for(const node of [...scene.children])if(!existingNodes.has(node))lobby.add(node);
+  lobby.scale.set(entrance.scaleX,1,entrance.scaleZ);
+  const centerZ=entrance.z-14*entrance.scaleZ;
+  lobby.position.set(entrance.x-origin*entrance.scaleX,entrance.y,centerZ);
+  scene.add(lobby);
+  const worldX=x=>entrance.x+(x-origin)*entrance.scaleX;
+  const worldZ=z=>centerZ+z*entrance.scaleZ;
+  for(const part of walls){part.x=worldX(part.x);part.z=worldZ(part.z);part.w*=entrance.scaleX;part.d*=entrance.scaleZ;if(part.bottom!==undefined)part.bottom+=entrance.y;if(part.top!==undefined)part.top+=entrance.y;}
+  for(const stair of floors[0].stairs){stair.x=worldX(stair.x);stair.z=worldZ(stair.z);}
+  Object.assign(floors[0],{origin:entrance.x,mapX:x=>(x-entrance.x)/entrance.scaleX,mapZ:z=>(z-centerZ)/entrance.scaleZ,spawnZ:worldZ(-6.2),baseY:entrance.y});
   for(let index=1;index<3;index++) {
     const base=origin+index*spacing;
     const floor={origin:base,walls:[],stairs:[],lights:[]};
@@ -163,17 +177,24 @@ export function buildInterior(T, scene, box, surface, texture) {
       box(base-9.2+i*.94,1.95,-13.78,.56,.6,.026,[0x9ab4aa,0xdda276,0xb8a276][i%3]);
     }
   }
-  const floorAt=x=>floors[Math.max(0,Math.min(floors.length-1,Math.round((x-origin)/spacing)))];
+  const floorAt=x=>floors[Math.max(0,Math.min(floors.length-1,x<200?0:Math.round((x-origin)/spacing)))];
   function stairHeight(x,z) {
-    if(z>stairStart || z<stairEnd)return .03;
-    const stair=floorAt(x).stairs.find(stair=>Math.abs(x-stair.x)<stairWidth/2);
-    if(!stair)return .03;
-    const step=Math.min(stepCount-1,Math.floor((stairStart-z)/tread));
-    return .03+(stair.direction>0?step+1:-step)*rise;
+    const floor=floorAt(x);
+    const base=floor.baseY??0;
+    const scale=floor.mapX?entrance.scaleX:1;
+    const localZ=floor.mapZ?floor.mapZ(z):z;
+    if(localZ>stairStart || localZ<stairEnd)return base+.03;
+    const stair=floor.stairs.find(stair=>Math.abs(x-stair.x)<stairWidth*scale/2);
+    if(!stair)return base+.03;
+    const step=Math.min(stepCount-1,Math.floor((stairStart-localZ)/tread));
+    return base+.03+(stair.direction>0?step+1:-step)*rise;
   }
+  let litFloor;
   function setLighting(x) {
-    const active=x>200?floorAt(x):null;
+    const active=x===undefined?null:floorAt(x);
+    if(active===litFloor)return;
+    litFloor=active;
     for(const floor of floors)for(const light of floor.lights)light.visible=floor===active;
   }
-  return {origin,walls,floors,floorAt,stairHeight,setLighting,exit:{x:origin,z:12.5},restroom:{x:origin+9,z:12}};
+  return {origin:entrance.x,walls,floors,floorAt,stairHeight,setLighting,restroom:{x:worldX(origin+9),z:worldZ(12)}};
 }
