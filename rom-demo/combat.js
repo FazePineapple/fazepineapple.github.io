@@ -11,21 +11,29 @@ export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=(
   tracer.visible=false;
   scene.add(tracer);
   let tracerTime=0;
+  const names=['Karpak','Dimonas','Lukoš','Laura Jus','Adam Medik','Robka','Edga','Ben10','Cigara'];
+  const randomName=()=>names[Math.floor(Math.random()*names.length)];
   function healthBar() {
     const canvas=document.createElement('canvas');
-    canvas.width=128;canvas.height=24;
+    canvas.width=128;canvas.height=56;
     const context=canvas.getContext('2d');
     const map=new T.CanvasTexture(canvas);
     const sprite=new T.Sprite(new T.SpriteMaterial({map,depthWrite:false}));
-    sprite.position.y=2.03;sprite.scale.set(.95,.178,1);
-    return {sprite,draw(hp){
+    sprite.position.y=2.03;sprite.scale.set(1.05,.46,1);
+    return {sprite,draw(hp,name){
+      context.clearRect(0,0,128,56);
+      context.fillStyle='#15241e';context.fillRect(0,0,128,30);
+      context.fillStyle='#f2f8e6';context.font='bold 19px sans-serif';context.textAlign='center';
+      context.fillText(name,64,22,120);
+      context.save();context.translate(0,32);
       context.fillStyle='#1a2620';context.fillRect(0,0,128,24);
       context.fillStyle='#733d35';context.fillRect(4,4,120,16);
       context.fillStyle='#a9df67';context.fillRect(4,4,120*hp/100,16);
-      map.needsUpdate=true;
+      context.restore();map.needsUpdate=true;
     }};
   }
-  const homes=[[-1,27],[12,26],[31,21]];
+  const homes=[[-1,27],[12,26],[31,21],[21.66,7],[22,10],[22.34,13]];
+  let lesson=false;
   for(const [x,z] of homes) {
     const model=new T.Group();
     courtyard.add(model);
@@ -39,10 +47,11 @@ export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=(
       box(0,-.28,0,.16,.61,.18,0x383c39,pivot);
       return pivot;
     });
-    const bar=healthBar();bar.draw(100);model.add(bar.sprite);
+    const name=randomName(), bar=healthBar();bar.draw(100,name);model.add(bar.sprite);
+    const student=bots.length>=3;
     const appearance=createBotAppearance(T,model,box,oval);
     const profile=appearance.roll();
-    bots.push({model,appearance,profile,bar,legs,x,z,hp:100,phase:bots.length,alert:0,cooldown:0,respawn:0,gas:0,gasTick:0});
+    bots.push({model,name,student,appearance,profile,bar,legs,x,z,hp:100,phase:bots.length,alert:0,cooldown:0,respawn:0,gas:0,gasTick:0});
   }
   const delta=new T.Vector3(), forward=new T.Vector3();
   function clearPath(position,target) {
@@ -55,16 +64,29 @@ export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=(
   }
   function damageBot(bot,amount) {
     bot.hp=Math.max(0,bot.hp-amount);
-    playSound('botHit');
-    bot.bar.draw(bot.hp);
+    playSound(bot.hp?'botHit':'botDeath');
+    bot.bar.draw(bot.hp,bot.name);
     if(bot.hp)return;
     onDefeat();
     bot.model.visible=false;bot.respawn=15;bot.alert=0;bot.gas=0;
   }
   return {
-    setCourtyardVisible(visible){courtyard.visible=visible;},
-    hitWithProp(position,damage) {
-      const bot=bots.find(({hp,model,profile})=>hp && Math.abs(position.y-model.position.y-.72*profile.scale)<.75*profile.scale && Math.hypot(position.x-model.position.x,position.z-model.position.z)<.55*profile.scale);
+    setCourtyardVisible(outdoors,lobby) {
+      for(const bot of bots)bot.model.visible=bot.hp>0 && (bot.model.position.z< -2.5 && bot.student?lobby:outdoors);
+    },
+    setLesson(active){lesson=active;},
+    atDoor(x,z){return bots.some(bot=>bot.student && bot.hp && Math.hypot(bot.model.position.x-x,bot.model.position.z-z)<2.3);},
+    hitWithProp(from,to,damage) {
+      delta.copy(to).sub(from);
+      const length=delta.lengthSq();
+      const bot=bots.find(({hp,model,profile})=>{
+        if(!hp)return false;
+        forward.copy(model.position);forward.y+=.72*profile.scale;
+        forward.sub(from);
+        const along=length?T.MathUtils.clamp(forward.dot(delta)/length,0,1):0;
+        forward.addScaledVector(delta,-along);
+        return Math.abs(forward.y)<.75*profile.scale && Math.hypot(forward.x,forward.z)<.55*profile.scale;
+      });
       if(!bot)return false;
       damageBot(bot,damage);
       if(bot.hp)bot.alert=7;
@@ -91,7 +113,7 @@ export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=(
           bot.respawn-=dt;
           if(bot.respawn>0)continue;
           model.position.set(bot.x,groundAt(bot.x,bot.z),bot.z);
-          model.visible=true;bot.hp=100;bot.bar.draw(100);bot.profile=bot.appearance.roll();
+          bot.hp=100;bot.name=randomName();bot.bar.draw(100,bot.name);bot.profile=bot.appearance.roll();
         }
         if(bot.gas>0) {
           bot.gas-=dt;bot.gasTick-=dt;
@@ -105,7 +127,10 @@ export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=(
         delta.copy(player.position).sub(p);
         const distance=Math.hypot(delta.x,delta.z);
         const chasing=(bot.alert>0 || distance<3.5) && distance<15 && clearPath(p,player.position);
-        if(!chasing)delta.set(bot.x+Math.sin(bot.phase*.55)*2.4-p.x,0,bot.z+Math.cos(bot.phase*.55)*2.4-p.z);
+        if(!chasing) {
+          const homeZ=bot.student && lesson?-5.4-(bot.z-7)*.65:bot.z;
+          delta.set(bot.student?bot.x-p.x:bot.x+Math.sin(bot.phase*.55)*2.4-p.x,0,bot.student?homeZ-p.z:bot.z+Math.cos(bot.phase*.55)*2.4-p.z);
+        }
         delta.y=0;
         const speed=chasing?2.4:1.5;
         const step=Math.min(delta.length(),speed*dt);
@@ -165,8 +190,8 @@ export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=(
       }
       if(!target)return 'Miss';
       damageBot(target,weapon.damage);
-      if(target.hp){target.alert=7;return target.profile.name+' · '+target.hp+' HP';}
-      return 'Practice bot defeated';
+      if(target.hp){target.alert=7;return target.name+' · '+target.hp+' HP';}
+      return target.name+' defeated';
     }
   };
 }

@@ -5,6 +5,8 @@ export function createAudio() {
     burp:[['sawtooth',145,61,.26,.12]],
     laugh:[['triangle',330,270,.13,.09],['triangle',360,280,.13,.09,.15],['triangle',390,270,.18,.09,.30]],
     scream:[['triangle',520,290,.31,.11],['sawtooth',650,400,.21,.035]],
+    bell:[['sine',880,880,.8,.12],['triangle',1320,1319,.5,.045],['sine',880,879,.8,.12,.48]],
+    botDeath:[['sawtooth',210,32,.48,.09],['triangle',99,35,.57,.11]],
     botHit:[['triangle',250,110,.15,.10]],
     botAttack:[['square',135,68,.19,.065]],
     foam:[['triangle',360,160,.17,.085],['sawtooth',215,92,.13,.022]],

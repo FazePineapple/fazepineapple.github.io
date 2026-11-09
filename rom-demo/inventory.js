@@ -3,7 +3,7 @@ export const items = {
   tire:{name:'Tire',icon:'🛞',stack:1,throwDamage:32},
   crate:{name:'Cardboard box',icon:'📦',stack:4,throwDamage:18},
   cinnamon:{name:'Suktukas',icon:'🥐',stack:16,effects:[],food:true},
-  ruler:{name:'Liniuote',description:'Metal ruler',icon:'📏',stack:1,
+  ruler:{name:'Liniuote',description:'Metal ruler',throwDamage:45,icon:'📏',stack:1,
     weapon:{name:'Liniuote',damage:27,range:2.3,aim:.5,cooldown:.35}},
   extinguisher:{name:'Fire extinguisher',icon:'🧯',stack:1,
     weapon:{name:'Fire extinguisher',damage:14,ranged:true,foam:true,range:7,aim:.9,cooldown:.28}},

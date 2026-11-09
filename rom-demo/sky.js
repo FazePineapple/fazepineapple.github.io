@@ -82,6 +82,7 @@ export function createSky(T, scene, sun, ambient) {
       lights.push(lamp);
     },
     toggle,
+    minute:()=>Math.floor(hour*60),
     time() {
       const minutes=Math.floor(hour*60);
       return String(Math.floor(minutes/60)).padStart(2,'0')+':'+String(minutes%60).padStart(2,'0');

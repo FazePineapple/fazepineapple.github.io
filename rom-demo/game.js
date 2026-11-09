@@ -35,6 +35,8 @@ function boot() {
   sun.shadow.normalBias = .035;
   scene.add(sun);
   const sky=createSky(T,scene,sun,ambient);
+  const lessons=[[480,525],[535,580],[600,645],[665,710],[720,765]];
+  let lastSchoolMinute=-1;
   const sceneGlobals=new Set(scene.children);
 
   const material = color => new T.MeshStandardMaterial({color, roughness:.94});
@@ -456,7 +458,7 @@ function boot() {
   function updateDoors(dt) {
     const {x,y,z}=player.position;
     const near=Math.abs(x-schoolDoor.x)<2.25 && Math.abs(z-schoolDoor.z)<2.45 && y<2.8;
-    doorOpening=T.MathUtils.lerp(doorOpening,near?1:0,1-Math.exp(-dt*9));
+    doorOpening=T.MathUtils.lerp(doorOpening,(near||combat.atDoor(schoolDoor.x,schoolDoor.z))?1:0,1-Math.exp(-dt*9));
     for(const {hinge,side} of doorLeaves)hinge.rotation.y=-side*doorOpening*Math.PI*.51;
   }
   function doorBlocked(x,z) {
@@ -518,7 +520,17 @@ function boot() {
   }
   const combat=createCombat(T,scene,box,oval,groundAt,block,audio.play,()=>record('defeats'));
   const fists={name:'Fists',damage:18,range:2,aim:.42,cooldown:.48};
-  let equipped=null, attackTime=0, swing=0;
+  let heldId=null, attackTime=0, swing=0;
+  const firstHands=new T.Group(), firstHeld=new T.Group();
+  camera.add(firstHands);scene.add(camera);firstHands.add(firstHeld);
+  for(const side of [-1,1]) {
+    const sleeve=oval(firstHands,denim,side*.27,-.29,-.52,.071,.071,.22);
+    sleeve.rotation.y=side*.25;
+    oval(firstHands,skin,side*.22,-.235,-.68,.055,.06,.084);
+  }
+  firstHeld.position.set(.22,-.21,-.69);
+  firstHeld.scale.setScalar(.68);
+  firstHands.visible=false;
   const held=new T.Group();
   held.position.set(.025,-.43,.10);
   limbs[1].arm.add(held);
@@ -543,15 +555,14 @@ function boot() {
       box(0,.17,.185,.112,.087,.028,0xeb934a,parent);
     }
   }
-  function equip(id) {
-    equipped=equipped===id?null:id;
-    held.clear();
-    if(equipped)weaponModel(equipped,held);
-    renderSlots();
+  function primaryAction() {
+    if(items[heldId]?.effects)useItem();
+    else if(items[heldId]?.throwDamage && !items[heldId].weapon)throwItem();
+    else attack();
   }
   function attack() {
     if(attackTime>0 || emote || deathTime || pickupMotion || climbing || drinkMotion)return;
-    const weapon=equipped?items[equipped].weapon:fists;
+    const weapon=items[heldId]?.weapon??fists;
     attackTime=weapon.cooldown;swing=.26;
     if(weapon.ranged)audio.play(weapon.foam?'foam':'shot');
     notice(weapon.name+' · '+combat.attack(player.position,yaw,weapon,pitch));
@@ -600,7 +611,11 @@ function boot() {
   function useItem(index=selected) {
     if(drinkMotion || pickupMotion || emote || deathTime)return;
     const slot=inventory.slots[index];
-    if(slot && items[slot.id].weapon){equip(slot.id);return;}
+    if(slot && items[slot.id].weapon){
+      if(index<9){selected=index;renderSlots();togglePack(false);}
+      else notice('Move the weapon to your hotbar');
+      return;
+    }
     if(slot && !items[slot.id].effects){notice('Use throw to toss this item');return;}
     const id=inventory.take(index);
     if(!id){notice('Selected slot is empty');return;}
@@ -615,7 +630,7 @@ function boot() {
     if(id==='bun')gas=Math.min(100,gas+54);
     if(id==='cinnamon')bowel=Math.min(100,bowel+55);
     if(id==='juice' || id==='beer') {
-      itemModel(id,drinkProp);drinkMotion={time:0};
+      itemModel(id,drinkProp);drinkMotion={id,time:0};renderSlots();
       if(packOpen)togglePack(false);
     }
     notice({juice:'Juice finished · Find a restroom when the urge hits',bun:'Sausage bun eaten · +40 stamina',beer:'Beer finished · Feeling dizzy',cinnamon:'Suktukas eaten · Find the WC when needed'}[id]);
@@ -842,31 +857,34 @@ function boot() {
     const id=inventory.take(index);
     if(!id){notice('Selected slot is empty');return;}
     const position=player.position;
+    const knife=id==='ruler';
     const force=new T.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));
     const x=position.x+force.x*.7,z=position.z+force.z*.7;
-    force.multiplyScalar(8.5); force.y=3.2;
+    force.multiplyScalar(knife?18:8.5); force.y=knife?1.25-Math.sin(pitch)*10:3.2;
     const obstructed=block(x,z);
     spawnItem(id,obstructed?position.x:x,obstructed?position.z:z,position.y+1.28,force);
     grabbed=null;
     renderSlots();
   }
+  const previousPropPosition=new T.Vector3();
   function updatePickups(dt) {
     for(const pickup of pickups) {
       pickup.delay=Math.max(0,pickup.delay-dt);
       const {model,marker,velocity}=pickup;
       if(!velocity)continue;
       const p=model.position;
-      velocity.y-=14*dt;
+      velocity.y-=(pickup.id==='ruler'?8:14)*dt;
       if(block(p.x+velocity.x*dt,p.z))velocity.x*=-.35;
       if(block(p.x,p.z+velocity.z*dt))velocity.z*=-.35;
+      previousPropPosition.copy(p);
       p.addScaledVector(velocity,dt);
-      const impact=items[pickup.id].throwDamage;
-      if(impact && !pickup.hit && velocity.lengthSq()>4 && combat.hitWithProp(p,impact)) {
+      const impact=items[pickup.id].throwDamage??8;
+      if(impact && !pickup.hit && velocity.lengthSq()>4 && combat.hitWithProp(previousPropPosition,p,impact)) {
         pickup.hit=true;velocity.multiplyScalar(-.24);velocity.y=Math.abs(velocity.y)+.6;
         notice(items[pickup.id].name+' hit a practice bot');
       }
-      model.rotation.x+=dt*7;
-      model.rotation.z+=dt*2;
+      if(pickup.id==='ruler')model.quaternion.setFromUnitVectors(T.Object3D.DEFAULT_UP,handPoint.copy(velocity).normalize());
+      else {model.rotation.x+=dt*7;model.rotation.z+=dt*2;}
       const floor=groundAt(p.x,p.z);
       if(p.y>floor)continue;
       p.y=floor;
@@ -897,10 +915,18 @@ function boot() {
     }
   }
   function renderSlots() {
-    if(equipped && !inventory.slots.some(slot=>slot?.id===equipped)) {
-      equipped=null;held.clear();
+    const selectedId=inventory.slots[selected]?.id??null;
+    if(selectedId!==heldId){
+      heldId=selectedId;held.clear();
+      if(heldId)itemModel(heldId,held);
     }
-    $('equipped').textContent=equipped?items[equipped].name:'Fists';
+    const viewId=drinkMotion?.id??heldId;
+    if(firstHeld.userData.item!==viewId){
+      firstHeld.userData.item=viewId;firstHeld.clear();
+      if(viewId)itemModel(viewId,firstHeld);
+    }
+    held.visible=!drinkMotion;
+    $('equipped').textContent=heldId?items[heldId].name:'Fists';
     for(const [group,start,end] of groups) for(let index=start;index<end;index++) {
       const button=group.children[index-start];
       const slot=inventory.slots[index];
@@ -921,8 +947,8 @@ function boot() {
       ? items[slot.id].name+' × '+slot.count+' · Choose a destination slot.'
       : 'Select an item, then click a slot to move or stack it.';
     $('packThrow').disabled=!slot;
-    $('packUse').disabled=!slot || !(items[slot.id].weapon || items[slot.id].effects);
-    $('packUse').textContent=slot && items[slot.id].weapon?(slot.id===equipped?'Unequip':'Equip'):items[slot?.id]?.food?'Eat one':'Drink one';
+    $('packUse').disabled=!slot || (items[slot.id].weapon? (grabbed??selected)>=9 : !items[slot.id].effects);
+    $('packUse').textContent=slot && items[slot.id].weapon?'Select hotbar slot':items[slot?.id]?.food?'Eat one':'Drink one';
     if(slot && items[slot.id].description)$('itemDetails').textContent=items[slot.id].description;
   }
   function togglePack(open) {
@@ -944,7 +970,7 @@ function boot() {
   $('jetButton').onclick=toggleJetpack;
   $('pickButton').onclick=interact;
   $('useButton').onclick=()=>useItem();
-  $('attackButton').onclick=attack;
+  $('attackButton').onclick=primaryAction;
   $('packUse').onclick=()=>useItem(grabbed ?? selected);
   $('throwButton').onclick=()=>throwItem();
   $('emoteButton').onclick=()=>{if(!packOpen)toggleEmotes(!emoteOpen);};
@@ -997,7 +1023,9 @@ function boot() {
     limbs[1].arm.rotation.x=-2.63*lift;
     limbs[1].arm.rotation.z=-.47*lift;
     drinkProp.rotation.x=1.25*lift;
-    if(t===1){drinkProp.clear();drinkMotion=null;audio.play('burp');}
+    firstHeld.position.set(.22-.19*lift,-.21+.13*lift,-.69+.31*lift);
+    firstHeld.rotation.x=1.16*lift;
+    if(t===1){drinkProp.clear();drinkMotion=null;audio.play('burp');renderSlots();}
   }
   function beginDeath() {
     if(deathTime)return;
@@ -1011,6 +1039,7 @@ function boot() {
     deathTime=0;climbing=null;jetpack=false;jetRig.visible=false;exhaust.visible=false;$('flight').hidden=true;$('deathScreen').hidden=true;
     if(pickupMotion){scene.remove(pickupMotion.model);pickupMotion=null;}
     drinkProp.clear();drinkMotion=null;landingTime=0;
+    firstHeld.position.set(.22,-.21,-.69);firstHeld.rotation.x=0;renderSlots();
     rig.visible=!firstPerson;
     player.position.set(-9,.03,22);
     interior.setLighting(undefined);
@@ -1067,7 +1096,7 @@ function boot() {
     if(/^Digit[1-9]$/.test(key)){selected=Number(key.at(-1))-1;renderSlots();return;}
     if(['Space','KeyE','KeyQ','KeyF','KeyX'].includes(key)) {
       e.preventDefault();
-      if(!e.repeat) {if(key==='Space'){keys.add(key);if(!jetpack)jump();}else if(key==='KeyE')interact();else if(key==='KeyF')useItem();else if(key==='KeyX')attack();else throwItem();}
+      if(!e.repeat) {if(key==='Space'){keys.add(key);if(!jetpack)jump();}else if(key==='KeyE')interact();else if(key==='KeyF')useItem();else if(key==='KeyX')primaryAction();else throwItem();}
       return;
     }
     if(!controls.includes(key))return;
@@ -1078,7 +1107,7 @@ function boot() {
   window.addEventListener('blur',()=>{keys.clear();touchKeys.clear();dragging=false;});
   canvas.addEventListener('pointerdown',e=>{
     if(!active||packOpen||emoteOpen||deathTime)return;
-    if(e.pointerType==='mouse' && e.button===0)attack();
+    if(e.pointerType==='mouse' && e.button===0)primaryAction();
     dragging=true;lastX=e.clientX;lastY=e.clientY;
     canvas.setPointerCapture(e.pointerId);
     if(e.pointerType==='mouse') canvas.requestPointerLock?.()?.catch(()=>{});
@@ -1251,7 +1280,7 @@ function boot() {
       }
       if(effects.dizzy)camera.rotateZ(Math.sin(now*.005)*.095*Math.min(1,effects.dizzy/3));
       const reticle=$('reticle');
-      reticle.hidden=deathTime>0 || !items[equipped]?.weapon?.ranged;
+      reticle.hidden=deathTime>0 || !items[heldId]?.weapon?.ranged;
       if(!reticle.hidden) {
         camera.updateMatrixWorld();
         aimPoint.addScaledVector(aimVector,16).project(camera);
@@ -1278,7 +1307,7 @@ function boot() {
     exteriorChunk.visible=!indoor || (x<200 && (nearDoor || !cameraIndoors));
     const visibleFloor=indoor?interior.floorAt(x):null;
     for(const floor of interior.floors)floor.chunk.visible=floor===visibleFloor || (floor===interior.floors[0] && nearDoor);
-    combat.setCourtyardVisible(exteriorChunk.visible);
+    combat.setCourtyardVisible(exteriorChunk.visible,interior.floors[0].chunk.visible);
     for(const {model,marker,velocity} of pickups) {
       const p=model.position;
       model.visible=inside(p.x,p.z,p.y)
@@ -1286,9 +1315,17 @@ function boot() {
       marker.visible=model.visible && !velocity;
     }
     sky.update(dt,camera,exteriorChunk.visible&&!cameraIndoors,active&&!packOpen&&!emoteOpen);
+    const minute=sky.minute();
+    if(active && !packOpen && !emoteOpen && minute!==lastSchoolMinute) {
+      lastSchoolMinute=minute;
+      combat.setLesson(lessons.some(([start,end])=>minute>=start && minute<end));
+      const boundary=lessons.find(([start,end])=>minute===start || minute===end);
+      if(boundary){audio.play('bell');notice(minute===boundary[0]?'School bell · Lesson starts':'School bell · Lesson ends');}
+    }
     const clock=$('clock');
     const time=sky.time();
     if(clock.textContent!==time)clock.textContent=time;
+    firstHands.visible=active && firstPerson && !deathTime;
     renderer.render(scene,camera);
   });
 }
