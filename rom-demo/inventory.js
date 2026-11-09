@@ -1,10 +1,18 @@
 export const items = {
+  jetpack:{name:'Jetpack'},
+  tire:{name:'Tire',icon:'🛞',stack:1,throwDamage:32},
+  crate:{name:'Cardboard box',icon:'📦',stack:4,throwDamage:18},
+  cinnamon:{name:'Suktukas',icon:'🥐',stack:16,effects:[],food:true},
+  ruler:{name:'Liniuote',description:'Metal ruler',icon:'📏',stack:1,
+    weapon:{name:'Liniuote',damage:27,range:2.3,aim:.5,cooldown:.35}},
+  extinguisher:{name:'Fire extinguisher',icon:'🧯',stack:1,
+    weapon:{name:'Fire extinguisher',damage:14,ranged:true,foam:true,range:7,aim:.9,cooldown:.28}},
   dagger: {name:'Sruguputu',description:'Japonijos mero durklas',icon:'🗡️',stack:1,
     weapon:{name:'Sruguputu',damage:100,range:2.7,aim:.42,cooldown:.55}},
   blaster: {name:'Training blaster',icon:'🔫',stack:1,
     weapon:{name:'Training blaster',damage:35,ranged:true,range:16,aim:.95,cooldown:.65}},
   juice: {name:'Small juice pack', icon:'🧃', stack:64, effects:[{type:'bladder',seconds:50}]},
-  bun: {name:'Sausage bun', icon:'🌭', stack:64, effects:[{type:'stamina',amount:40},{type:'gas',seconds:36}]},
+  bun: {name:'Sausage bun',food:true, icon:'🌭', stack:64, effects:[{type:'stamina',amount:40},{type:'gas',seconds:36}]},
   beer: {name:'Beer bottle', icon:'🍺', stack:64, effects:[{type:'dizzy',seconds:24}]},
 };
 

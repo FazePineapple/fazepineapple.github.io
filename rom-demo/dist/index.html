@@ -38,7 +38,7 @@
   <footer><span>01 / GEDIMINO GIMNAZIJA</span><span>14 EŽERO G. · NEMENČINĖ</span></footer>
 </section>
 <section id="hud" hidden aria-label="Game controls">
-  <div class="location"><span>FREE ROAM</span><strong id="zone">School courtyard</strong></div>
+  <div class="location"><span>FREE ROAM</span><strong id="zone">School courtyard</strong><span id="clock" aria-label="In-game time">08:00</span></div>
   <button id="menuButton">Esc &nbsp; Menu</button>
   <div class="map"><span>CAMPUS MAP <b>N ↑</b></span><canvas id="radar" width="158" height="128" aria-label="Campus map"></canvas></div>
     <button id="packButton"><span data-binding="KeyI">I</span> &nbsp; Inventory</button>
@@ -51,6 +51,7 @@
         <div class="vitals secondary-vitals">
       <label>Bladder <span id="bladderValue">0</span><meter id="bladder" min="0" max="100" value="0"></meter></label>
       <label>Gas <span id="gasValue">0</span><meter id="gas" min="0" max="100" value="0"></meter></label>
+      <label>Bowel <span id="bowelValue">0</span><meter id="bowel" min="0" max="100" value="0"></meter></label>
     </div>
     <div id="equipped" aria-label="Equipped weapon"></div><div id="hotbar" class="slots" aria-label="Hotbar"></div>
   </div>

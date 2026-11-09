@@ -65,14 +65,12 @@ export function createSky(T, scene, sun, ambient) {
     clouds.push({sprite,angle,height});
   }
 
-  let night=false;
-  let elapsed=0;
+  let hour=8;
   let blend=0;
   let drift=0;
 
   function toggle() {
-    night=!night;
-    elapsed=0;
+    hour=hour>=20 || hour<6?8:22;
   }
 
   return {
@@ -84,13 +82,14 @@ export function createSky(T, scene, sun, ambient) {
       lights.push(lamp);
     },
     toggle,
+    time() {
+      const minutes=Math.floor(hour*60);
+      return String(Math.floor(minutes/60)).padStart(2,'0')+':'+String(minutes%60).padStart(2,'0');
+    },
     update(dt,camera,outdoors,playing) {
-      if(playing) {
-        elapsed+=dt;
-        if(elapsed>=(night?90:150))toggle();
-      }
-      const step=dt*.52;
-      blend=night?Math.min(1,blend+step):Math.max(0,blend-step);
+      if(playing)hour=(hour+dt*.1)%24;
+      const darkness=1-T.MathUtils.smoothstep(hour,5,8)+T.MathUtils.smoothstep(hour,17,21);
+      blend=T.MathUtils.lerp(blend,darkness,1-Math.exp(-dt*1.25));
       scene.background.copy(daylightColor).lerp(midnightColor,blend);
       scene.fog.color.copy(scene.background);
       ambient.color.copy(dayAmbient).lerp(nightAmbient,blend);

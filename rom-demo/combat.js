@@ -63,6 +63,13 @@ export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=(
   }
   return {
     setCourtyardVisible(visible){courtyard.visible=visible;},
+    hitWithProp(position,damage) {
+      const bot=bots.find(({hp,model,profile})=>hp && Math.abs(position.y-model.position.y-.72*profile.scale)<.75*profile.scale && Math.hypot(position.x-model.position.x,position.z-model.position.z)<.55*profile.scale);
+      if(!bot)return false;
+      damageBot(bot,damage);
+      if(bot.hp)bot.alert=7;
+      return true;
+    },
     nearbyReaction(position,type) {
       let count=0;
       const range=type==='gas'?3:8;
@@ -153,6 +160,7 @@ export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=(
         points.setXYZ(0,origin.x,origin.y,origin.z);
         points.setXYZ(1,end.x,end.y,end.z);
         points.needsUpdate=true;
+        tracer.material.color.setHex(weapon.foam?0xe4f5ff:0xffe798);
         tracerTime=.12;tracer.visible=true;tracer.material.opacity=1;
       }
       if(!target)return 'Miss';

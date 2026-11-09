@@ -7,6 +7,7 @@ export function createAudio() {
     scream:[['triangle',520,290,.31,.11],['sawtooth',650,400,.21,.035]],
     botHit:[['triangle',250,110,.15,.10]],
     botAttack:[['square',135,68,.19,.065]],
+    foam:[['triangle',360,160,.17,.085],['sawtooth',215,92,.13,.022]],
     shot:[['sawtooth',170,45,.14,.11]],
   };
   function start() {

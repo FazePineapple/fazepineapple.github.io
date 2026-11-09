@@ -351,6 +351,18 @@ function boot() {
   mesh(new T.CylinderGeometry(.17,.25,1.46,7),0x785339,18,1.28,.15);
   box(18,2.04,.15,.27,.39,.26,0x8d6648);
 
+  const parkedCars=[];
+  for(const [x,z,color] of [[-46,10,0x42667b],[-47,-2,0xad5143],[-42,-36,0xc7bfab]]) {
+    box(x,.52,z,1.86,.67,3.95,color);
+    box(x,.995,z-.14,1.64,.56,2.05,0x526773);
+    box(x,1.29,z-.14,1.63,.08,1.96,color);
+    for(const side of [-1,1]) {
+      for(const axle of [-1.25,1.25])mesh(new T.CylinderGeometry(.33,.33,.17,12),0x26282b,x+side*.88,.34,z+axle).rotation.z=Math.PI/2;
+      box(x+side*.61,.58,z+1.987,.36,.16,.05,0xf7e3b1);
+      box(x+side*.61,.58,z-1.987,.36,.16,.05,0xad3830);
+    }
+    parkedCars.push({x,z,w:1.95,d:4.08,h:1.35});
+  }
   const exteriorChunk=new T.Group();
   for(const node of [...scene.children]) {
     if(!sceneGlobals.has(node) && !node.isLight)exteriorChunk.add(node);
@@ -439,7 +451,7 @@ function boot() {
     return x>200 || (Math.abs(x-schoolDoor.x)<5.91 && z<schoolDoor.z && z>schoolDoor.z-14.94 && y<4.3);
   }
   const solidBuildings=buildings.filter(b=>b.x!==schoolDoor.x);
-  const exteriorColliders=[...solidBuildings,...schoolShell];
+  const exteriorColliders=[...solidBuildings,...schoolShell,...parkedCars];
   const groundColliders=exteriorColliders.filter(b=>!b.bottom);
   function updateDoors(dt) {
     const {x,y,z}=player.position;
@@ -511,7 +523,16 @@ function boot() {
   held.position.set(.025,-.43,.10);
   limbs[1].arm.add(held);
   function weaponModel(id,parent) {
-    if(id==='dagger') {
+    if(id==='ruler') {
+      box(0,.19,0,.058,.38,.016,0xaeb9ba,parent);
+      for(let i=0;i<14;i++)box(-.016,.043+i*.023,.009,i%5===0?.021:.012,.003,.003,0x37484c,parent);
+    } else if(id==='extinguisher') {
+      mesh(new T.CapsuleGeometry(.09,.21,5,12),0xbb3931,0,.2,0,parent);
+      box(0,.22,.086,.095,.105,.013,0xede4d3,parent);
+      box(0,.415,.015,.105,.045,.12,0x323d41,parent);
+      box(.095,.34,.045,.037,.15,.035,0x282e31,parent);
+      box(.095,.28,.101,.047,.04,.092,0x323d41,parent);
+    } else if(id==='dagger') {
       box(0,.064,0,.055,.128,.053,0x665138,parent);
       box(0,.13,0,.14,.032,.055,0xd2a74f,parent);
       box(0,.235,0,.075,.19,.024,0xd5e1dc,parent);
@@ -529,10 +550,10 @@ function boot() {
     renderSlots();
   }
   function attack() {
-    if(attackTime>0 || emote || deathTime || pickupMotion || climbing)return;
+    if(attackTime>0 || emote || deathTime || pickupMotion || climbing || drinkMotion)return;
     const weapon=equipped?items[equipped].weapon:fists;
     attackTime=weapon.cooldown;swing=.26;
-    if(weapon.ranged)audio.play('shot');
+    if(weapon.ranged)audio.play(weapon.foam?'foam':'shot');
     notice(weapon.name+' · '+combat.attack(player.position,yaw,weapon,pitch));
   }
   const inventory=createInventory();
@@ -541,10 +562,12 @@ function boot() {
   let airborne=false, verticalSpeed=0, pickupMessage='', messageTime=0;
   const pickups=[];
   const effects={dizzy:0,gas:0,bladder:0};
-  let bladder=0, gas=0, pressureTime=0, gasDelay=0, puffTime=0;
+  let bladder=0, gas=0, bowel=0, pressureTime=0, gasDelay=0, puffTime=0;
   let emoteOpen=false, emote=null, emoteTime=0;
   const emoteDuration={wave:1.65,flip:.85,fall:1.55,laugh:1.55,fart:.72,pee:1.55};
-  let jetpack=false;
+  let jetpack=false, jetpackUnlocked=false, drinkMotion=null, landingTime=0;
+  const drinkProp=new T.Group();
+  limbs[1].arm.add(drinkProp);drinkProp.position.set(.024,-.45,.04);
   const jetRig=new T.Group(), exhaust=new T.Group();
   torso.add(jetRig);jetRig.add(exhaust);jetRig.visible=false;exhaust.visible=false;
   for(const x of [-.125,.125]) {
@@ -554,6 +577,7 @@ function boot() {
   }
   function toggleJetpack() {
     if(inside(player.position.x,player.position.z,player.position.y) || climbing || emote || pickupMotion)return;
+    if(!jetpackUnlocked){notice('Find the jetpack outdoors first');return;}
     jetpack=!jetpack;jetRig.visible=jetpack;exhaust.visible=false;
     $('flight').hidden=!jetpack;
     notice(jetpack?'Jetpack equipped · Hold jump to thrust':'Jetpack stowed');
@@ -574,8 +598,10 @@ function boot() {
   }
   puff.visible=false;scene.add(puff);
   function useItem(index=selected) {
+    if(drinkMotion || pickupMotion || emote || deathTime)return;
     const slot=inventory.slots[index];
     if(slot && items[slot.id].weapon){equip(slot.id);return;}
+    if(slot && !items[slot.id].effects){notice('Use throw to toss this item');return;}
     const id=inventory.take(index);
     if(!id){notice('Selected slot is empty');return;}
     for(const effect of items[id].effects) {
@@ -587,8 +613,12 @@ function boot() {
     if(id==='juice')bladder=Math.min(100,bladder+38);
     if(id==='beer')bladder=Math.min(100,bladder+26);
     if(id==='bun')gas=Math.min(100,gas+54);
-    if(id!=='bun')audio.play('burp');
-    notice({juice:'Juice finished · Find a restroom when the urge hits',bun:'Sausage bun eaten · +40 stamina',beer:'Beer finished · Feeling dizzy'}[id]);
+    if(id==='cinnamon')bowel=Math.min(100,bowel+55);
+    if(id==='juice' || id==='beer') {
+      itemModel(id,drinkProp);drinkMotion={time:0};
+      if(packOpen)togglePack(false);
+    }
+    notice({juice:'Juice finished · Find a restroom when the urge hits',bun:'Sausage bun eaten · +40 stamina',beer:'Beer finished · Feeling dizzy',cinnamon:'Suktukas eaten · Find the WC when needed'}[id]);
     grabbed=null;renderSlots();updateVitals();
   }
   function emitGas() {
@@ -682,7 +712,7 @@ function boot() {
       if(!health)beginDeath();
       else notice('Bladder pressure · −4 health');
     }
-    const label=[effects.dizzy&&'Dizzy',gas>=32&&'Gassy',bladder>=70&&'Needs the WC'].filter(Boolean).join(' · ');
+    const label=[effects.dizzy&&'Dizzy',gas>=32&&'Gassy',(bladder>=70||bowel>=55)&&'Needs the WC'].filter(Boolean).join(' · ');
     if($('effects').textContent!==label)$('effects').textContent=label;
     $('effects').hidden=!label;
   }
@@ -696,7 +726,10 @@ function boot() {
         const destination=interior.floors.indexOf(floor)+stair.direction;
         return {label:(stair.direction>0?'Go up to floor ':'Go down to floor ')+(destination+1),run:()=>changeSchoolFloor(destination)};
       }
-      if(bladder && near(interior.restroom))return {label:'Use restroom',run:()=>startEmote('pee',true)};
+      if((bladder || bowel) && near(interior.restroom))return {label:'Use restroom',run:()=>{
+        if(bowel){bowel=0;notice('Bowel meter cleared');}
+        if(bladder)startEmote('pee',true);
+      }};
     }
     return null;
   }
@@ -718,12 +751,28 @@ function boot() {
   }
   const bottleBody=new T.CylinderGeometry(.077,.078,.24,12);
   const bottleNeck=new T.CylinderGeometry(.035,.055,.14,12);
-  function spawnItem(id,x,z,y=groundAt(x,z),velocity=null) {
-    const model=new T.Group();
-    scene.add(model);
-    model.position.set(x,y,z);
+  function itemModel(id,model) {
     if(items[id].weapon)weaponModel(id,model);
-    else if(id==='juice') {
+    else if(id==='jetpack') {
+      for(const x of [-.125,.125]) {
+        mesh(new T.CapsuleGeometry(.087,.33,5,10),0x65747a,x,.27,0,model);
+        box(x,.26,.085,.12,.095,.028,0xe2a13e,model);
+      }
+      box(0,.23,0,.24,.18,.11,0x37474e,model);
+    } else if(id==='tire') {
+      mesh(new T.TorusGeometry(.26,.086,10,24),0x262a2c,0,.35,0,model);
+      mesh(new T.TorusGeometry(.177,.021,8,24),0x44484a,0,.35,.035,model);
+    } else if(id==='crate') {
+      box(0,.23,0,.49,.46,.42,0xa77346,model);
+      box(0,.463,0,.095,.008,.42,0xcfad7a,model);
+      box(.246,.23,0,.008,.46,.095,0xcfad7a,model);
+    } else if(id==='cinnamon') {
+      oval(model,0xd39a55,0,.071,0,.15,.071,.15);
+      for(let i=0;i<35;i++) {
+        const angle=i*.36,r=.011+i*.0032;
+        oval(model,0x8a4f34,Math.cos(angle)*r,.137-r*.16,Math.sin(angle)*r,.015,.008,.015);
+      }
+    } else if(id==='juice') {
       box(0,.135,0,.18,.27,.13,0xf09d36,model);
       box(0,.15,.067,.11,.12,.012,0xf8f0bf,model);
       box(.04,.197,.079,.017,.15,.015,0xe5e9db,model).rotation.z=.11;
@@ -737,12 +786,22 @@ function boot() {
       mesh(new T.CylinderGeometry(.079,.079,.105,12),0xd6b375,0,.136,0,model);
       mesh(new T.CylinderGeometry(.039,.039,.031,12),0xa8ac91,0,.37,0,model);
     }
+  }
+  function spawnItem(id,x,z,y=groundAt(x,z),velocity=null) {
+    const model=new T.Group();
+    scene.add(model);model.position.set(x,y,z);itemModel(id,model);
     const marker=mesh(new T.RingGeometry(.25,.29,20),new T.MeshBasicMaterial({color:0xe5f49d,side:T.DoubleSide}),x,groundAt(x,z)+.022,z);
     marker.rotation.x=-Math.PI/2;
     marker.castShadow=false;
     marker.visible=!velocity;
     pickups.push({id,model,marker,velocity,delay:velocity?.y ? .6 : 0});
   }
+  spawnItem('jetpack',24,14);
+  spawnItem('tire',-34,14);
+  spawnItem('crate',-12,22);
+  spawnItem('cinnamon',-8,17);
+  spawnItem('ruler',-12,18);
+  spawnItem('extinguisher',24,-4.5);
   spawnItem('dagger',-4,23);
   spawnItem('blaster',3,24);
   spawnItem('juice',-9,19);
@@ -762,13 +821,14 @@ function boot() {
   }
   function pickupItem() {
     const pickup=nearestItem();
-    if(!pickup || pickupMotion || emote || deathTime)return;
-    if(!inventory.add(pickup.id)){notice('Inventory full');return;}
+    if(!pickup || pickupMotion || drinkMotion || emote || deathTime)return;
+    if(pickup.id==='jetpack')jetpackUnlocked=true;
+    else if(!inventory.add(pickup.id)){notice('Inventory full');return;}
     record('pickups');
-    notice('Picked up '+items[pickup.id].name);
+    notice(pickup.id==='jetpack'?'Jetpack found · Press J to equip':'Picked up '+items[pickup.id].name);
     const from=pickup.model.position.clone();
-    player.rotation.y=Math.atan2(from.x-player.position.x,from.z-player.position.z);
-    pickupMotion={model:pickup.model,from,time:0};
+    const offset=Math.atan2(from.x-player.position.x,from.z-player.position.z)-player.rotation.y;
+    pickupMotion={model:pickup.model,from,turn:Math.atan2(Math.sin(offset),Math.cos(offset)),time:0};
     scene.remove(pickup.marker);
     pickup.marker.material.dispose();
     pickup.marker.geometry.dispose();
@@ -800,6 +860,11 @@ function boot() {
       if(block(p.x+velocity.x*dt,p.z))velocity.x*=-.35;
       if(block(p.x,p.z+velocity.z*dt))velocity.z*=-.35;
       p.addScaledVector(velocity,dt);
+      const impact=items[pickup.id].throwDamage;
+      if(impact && !pickup.hit && velocity.lengthSq()>4 && combat.hitWithProp(p,impact)) {
+        pickup.hit=true;velocity.multiplyScalar(-.24);velocity.y=Math.abs(velocity.y)+.6;
+        notice(items[pickup.id].name+' hit a practice bot');
+      }
       model.rotation.x+=dt*7;
       model.rotation.z+=dt*2;
       const floor=groundAt(p.x,p.z);
@@ -856,8 +921,8 @@ function boot() {
       ? items[slot.id].name+' × '+slot.count+' · Choose a destination slot.'
       : 'Select an item, then click a slot to move or stack it.';
     $('packThrow').disabled=!slot;
-    $('packUse').disabled=!slot;
-    $('packUse').textContent=slot && items[slot.id].weapon?(slot.id===equipped?'Unequip':'Equip'):slot?.id==='bun'?'Eat one':'Drink one';
+    $('packUse').disabled=!slot || !(items[slot.id].weapon || items[slot.id].effects);
+    $('packUse').textContent=slot && items[slot.id].weapon?(slot.id===equipped?'Unequip':'Equip'):items[slot?.id]?.food?'Eat one':'Drink one';
     if(slot && items[slot.id].description)$('itemDetails').textContent=items[slot.id].description;
   }
   function togglePack(open) {
@@ -900,6 +965,8 @@ function boot() {
     $('stamina').value=stamina;
     $('bladder').value=bladder;
     $('gas').value=gas;
+    $('bowel').value=bowel;
+    $('bowelValue').textContent=Math.ceil(bowel);
     $('bladderValue').textContent=Math.ceil(bladder);
     $('gasValue').textContent=Math.ceil(gas);
     $('hpValue').textContent=Math.ceil(health);
@@ -911,8 +978,9 @@ function boot() {
     motion.time+=dt;
     const t=Math.min(1,motion.time/.64);
     const reach=Math.sin(t*Math.PI);
-    rig.rotation.x=.47*reach;
-    rig.position.y=-.27*reach;
+    torso.rotation.y=motion.turn*reach;
+    torso.rotation.x=.54*reach;
+    torso.position.y=-.25*reach;
     limbs[1].arm.rotation.x=-1.08*reach;
     if(t>=.31) {
       limbs[1].arm.localToWorld(handPoint.set(.025,-.42,.03));
@@ -920,6 +988,16 @@ function boot() {
       motion.model.scale.setScalar(1-Math.max(0,(t-.79)/.21));
     }
     if(t===1){scene.remove(motion.model);pickupMotion=null;}
+  }
+  function updateDrink(dt) {
+    if(!drinkMotion)return;
+    drinkMotion.time+=dt;
+    const t=Math.min(1,drinkMotion.time/1.4);
+    const lift=Math.min(1,t/.29,(1-t)/.29);
+    limbs[1].arm.rotation.x=-2.63*lift;
+    limbs[1].arm.rotation.z=-.47*lift;
+    drinkProp.rotation.x=1.25*lift;
+    if(t===1){drinkProp.clear();drinkMotion=null;audio.play('burp');}
   }
   function beginDeath() {
     if(deathTime)return;
@@ -932,6 +1010,7 @@ function boot() {
   function reset() {
     deathTime=0;climbing=null;jetpack=false;jetRig.visible=false;exhaust.visible=false;$('flight').hidden=true;$('deathScreen').hidden=true;
     if(pickupMotion){scene.remove(pickupMotion.model);pickupMotion=null;}
+    drinkProp.clear();drinkMotion=null;landingTime=0;
     rig.visible=!firstPerson;
     player.position.set(-9,.03,22);
     interior.setLighting(undefined);
@@ -940,7 +1019,7 @@ function boot() {
     airborne=false;verticalSpeed=0;health=100;stamina=100;recovery=0;exhausted=false;
     for(const effect of Object.keys(effects))effects[effect]=0;
     puffTime=0;puff.visible=false;
-    bladder=0;gas=0;pressureTime=0;gasDelay=0;emote=null;
+    bladder=0;gas=0;bowel=0;pressureTime=0;gasDelay=0;emote=null;
     for(const {arm} of limbs)arm.rotation.z=0;
     updateEmote(0);
     if(active)audio.ambience(true,false);
@@ -1085,11 +1164,11 @@ function boot() {
       const f=Number(down('KeyW','ArrowUp'))-Number(down('KeyS','ArrowDown'));
       const s=Number(down('KeyD','ArrowRight'))-Number(down('KeyA','ArrowLeft'));
       updateDoors(dt);
-      const thrust=jetpack && !climbing && !emote && !pickupMotion && stamina>0 && player.position.y<32 && down('Space');
+      const thrust=jetpack && !climbing && !emote && !pickupMotion && !drinkMotion && stamina>0 && player.position.y<32 && down('Space');
       exhaust.visible=thrust;
       if(thrust){airborne=true;stamina=Math.max(0,stamina-14*dt);recovery=.65;}
       const running=!climbing && !pickupMotion && (!emote || emote==='fart') && (f||s) && !exhausted && !airborne && down('ShiftLeft','ShiftRight');
-      const posing=climbing || pickupMotion || (emote && emote!=='fart');
+      const posing=climbing || pickupMotion || drinkMotion || (emote && emote!=='fart');
       movement.set(posing?0:s,0,posing?0:-f).normalize().applyAxisAngle(T.Object3D.DEFAULT_UP,yaw);
       const {x,z}=player.position;
       const step=(running?7.6:4.05)*dt;
@@ -1107,6 +1186,7 @@ function boot() {
         if(jetpack)verticalSpeed=Math.max(-7,verticalSpeed);
         player.position.y+=verticalSpeed*dt;
         if(player.position.y<=floor && verticalSpeed<=0) {
+          landingTime=Math.min(.32,.08-verticalSpeed*.015);
           health=Math.max(0,health-Math.max(0,-verticalSpeed-8)*8);
           airborne=false;verticalSpeed=0;player.position.y=floor;
           if(health===0)beginDeath();
@@ -1134,16 +1214,22 @@ function boot() {
         player.rotation.y+=Math.atan2(Math.sin(angle-player.rotation.y),Math.cos(angle-player.rotation.y))*(1-Math.exp(-dt*16));
         stride+=dt*(running?13:9);
       }
+      landingTime=Math.max(0,landingTime-dt);
+      const fall=airborne&&!thrust?T.MathUtils.clamp(-verticalSpeed/13,0,1):0;
+      const landing=Math.sin(Math.PI*landingTime/.32);
       for(const {leg,arm,side} of limbs){
         leg.rotation.x=T.MathUtils.lerp(leg.rotation.x,airborne?side*.32:moving?Math.sin(stride)*side*(running?.9:.58):0,.24);
         arm.rotation.x=-leg.rotation.x*.76;
-        arm.rotation.z=0;
+        arm.rotation.z=side*fall*.88;
+        if(fall){arm.rotation.x=-.28-fall*.69;leg.rotation.x-=fall*.27;}
         if(climbing){arm.rotation.x=-2.15+Math.sin(stride)*side*.42;leg.rotation.x=Math.sin(stride)*side*.43;}
       }
       if(swing)limbs[1].arm.rotation.x=-Math.sin(swing/.26*Math.PI)*1.8;
-      torso.position.y=moving?Math.abs(Math.sin(stride))*.045:0;
+      torso.rotation.set(.22*fall,0,0);
+      torso.position.y=(moving?Math.abs(Math.sin(stride))*.045:0)-landing*.18;
       updateEmote(dt);
       updatePickupMotion(dt);
+      updateDrink(dt);
       aimVector.set(0,-Math.sin(pitch),-Math.cos(pitch)).applyAxisAngle(T.Object3D.DEFAULT_UP,yaw);
       aimPoint.copy(player.position);aimPoint.y+=1.66;
       const indoors=inside(player.position.x,player.position.z,player.position.y);
@@ -1200,6 +1286,9 @@ function boot() {
       marker.visible=model.visible && !velocity;
     }
     sky.update(dt,camera,exteriorChunk.visible&&!cameraIndoors,active&&!packOpen&&!emoteOpen);
+    const clock=$('clock');
+    const time=sky.time();
+    if(clock.textContent!==time)clock.textContent=time;
     renderer.render(scene,camera);
   });
 }

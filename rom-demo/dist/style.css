@@ -50,3 +50,6 @@
 .settings-buttons{display:flex;justify-content:flex-end;gap:6px;margin-top:12px}
 @media(max-width:480px){.settings-options{grid-template-columns:1fr}}
 #flight{position:absolute;left:20px;top:108px;background:#142119e8;color:#d6fa87;padding:5px 8px;border-radius:4px;font:750 11px system-ui}
+.location #clock{margin-top:4px;font:800 15px ui-monospace,monospace;letter-spacing:.1em;color:#fff}
+.secondary-vitals{grid-template-columns:repeat(3,minmax(0,1fr))}#bowel::-webkit-meter-optimum-value{background:#cf9876}
+@media(max-width:600px){#prompt{top:59%;max-width:92vw;white-space:normal;text-align:center}}
