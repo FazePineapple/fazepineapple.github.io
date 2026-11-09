@@ -1,7 +1,7 @@
 export const items = {
-  juice: {name:'Small juice pack', icon:'🧃', stack:64, effects:[]},
-  bun: {name:'Sausage bun', icon:'🌭', stack:64, effects:[]},
-  beer: {name:'Beer bottle', icon:'🍺', stack:64, effects:[]},
+  juice: {name:'Small juice pack', icon:'🧃', stack:64, effects:[{type:'bladder',seconds:50}]},
+  bun: {name:'Sausage bun', icon:'🌭', stack:64, effects:[{type:'stamina',amount:40},{type:'gas',seconds:36}]},
+  beer: {name:'Beer bottle', icon:'🍺', stack:64, effects:[{type:'dizzy',seconds:24}]},
 };
 
 export function createInventory() {

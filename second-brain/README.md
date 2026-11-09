@@ -31,6 +31,8 @@ The browser smoke test covered startup, movement, pickup, moving an item into th
 
 ## Extension points
 
-Item definitions have an effects array reserved for future buffs. Juice, the sausage bun, and the beer bottle currently support pickup, storage, stacking, and throwing. A future use action can apply the selected item's effects before removing one unit from its stack.
+Use E at the green marker outside the right-hand entrance to enter, and E beneath IŠĖJIMAS to return to the courtyard. rom-demo/interior.js defines the interior geometry and wall collision layout. The [school foyer report](https://gediminogimnazija.lt/lt/naujienos/aktualijos/2025/12/neformalaus-ugdymo-diena-sviesos-kelione-nemencines-gedimino-gimnazijoje) and [school assembly hall photos](https://gediminogimnazija.lt/lt/naujienos/projektine-veikla/2025/10/ilgalaikiu-muzikos-sokio-kino-teatro-krypciu-kulturiniu-edukaciniu-programu-igyvendinimas-mokykloje-ir-uz-mokyklos-ribu) informed the decor. The floor plan is fictional.
+
+Press F to consume one item from the selected hotbar stack, or use the Eat or Drink button in the inventory. Item definitions list immediate stamina restoration and timed effects. Juice causes repeated restroom urges, the bun restores stamina and causes gas during sprints, and beer sways the camera. Reusing an item refreshes its timer.
 
 Keep walkable heights in groundAt aligned with the visible steps, ramp, and hills. Building footprints drive collision, camera clearance, and the minimap.

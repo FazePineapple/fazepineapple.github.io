@@ -1,4 +1,5 @@
 import {items, createInventory} from './inventory.js';
+import {buildInterior} from './interior.js';
 import * as T from './three.module.js';
 import romPhoto from './dist/rom.jpg';
 
@@ -323,7 +324,15 @@ function boot() {
   const movement=new T.Vector3(), direction=new T.Vector3();
   const canvas=renderer.domElement;
   const map=$('radar').getContext('2d');
-  const block=(x,z) => Math.abs(x)>63 || Math.abs(z)>58 ||
+  const interior=buildInterior(T,scene,box,surface,texture);
+  const outdoorDoor={x:22,z:.65};
+  const entranceMarker=mesh(new T.RingGeometry(.65,.73,32),
+    new T.MeshBasicMaterial({color:0xc8ed80,side:T.DoubleSide}),22,.065,2.05);
+  entranceMarker.rotation.x=-Math.PI/2;
+  entranceMarker.castShadow=false;
+  const inside=(x)=>x>200;
+  const hits=(walls,x,z)=>walls.some(b=>Math.abs(x-b.x)<b.w/2+.38 && Math.abs(z-b.z)<b.d/2+.38);
+  const block=(x,z) => inside(x) ? hits(interior.walls,x,z) : Math.abs(x)>63 || Math.abs(z)>58 ||
     buildings.some(b=>Math.abs(x-b.x)<b.w/2+.38 && Math.abs(z-b.z)<b.d/2+.38) ||
     trees.some(t=>(x-t.x)**2+(z-t.z)**2<.58**2);
   const inventory=createInventory();
@@ -331,6 +340,70 @@ function boot() {
   let health=100, stamina=100, exhausted=false, recovery=0;
   let airborne=false, verticalSpeed=0, pickupMessage='', messageTime=0;
   const pickups=[];
+  const effects={dizzy:0,gas:0,bladder:0};
+  let gasDelay=0, bladderDelay=0, puffTime=0;
+  const puff=new T.Mesh(new T.SphereGeometry(.21,12,8),
+    new T.MeshBasicMaterial({color:0xafc575,transparent:true,depthWrite:false}));
+  puff.visible=false;scene.add(puff);
+  function useItem(index=selected) {
+    const id=inventory.take(index);
+    if(!id){notice('Selected slot is empty');return;}
+    for(const effect of items[id].effects) {
+      if(effect.type==='stamina') {
+        stamina=Math.min(100,stamina+effect.amount);
+        if(stamina>=22)exhausted=false;
+      } else effects[effect.type]=effect.seconds;
+    }
+    if(id==='juice')bladderDelay=4;
+    notice({juice:'Juice finished · Find a restroom when the urge hits',bun:'Sausage bun eaten · +40 stamina',beer:'Beer finished · Feeling dizzy'}[id]);
+    grabbed=null;renderSlots();updateVitals();
+  }
+  function updateEffects(dt,sprinting) {
+    for(const effect of Object.keys(effects))effects[effect]=Math.max(0,effects[effect]-dt);
+    gasDelay=Math.max(0,gasDelay-dt);
+    if(effects.gas && sprinting && !gasDelay) {
+      gasDelay=2.2;puffTime=.65;
+      puff.position.copy(player.position);
+      puff.position.y+=.89;
+      puff.position.x-=Math.sin(player.rotation.y)*.4;
+      puff.position.z-=Math.cos(player.rotation.y)*.4;
+      notice('Prrrt!');
+    }
+    puffTime=Math.max(0,puffTime-dt);
+    puff.visible=puffTime>0;
+    puff.material.opacity=puffTime*.65;
+    puff.scale.setScalar(1+(.65-puffTime)*1.3);
+    if(effects.bladder) {
+      bladderDelay-=dt;
+      if(bladderDelay<=0){notice('Rom needs to pee · Find the WC');bladderDelay=8;}
+    }
+    const label=[effects.dizzy&&'Dizzy',effects.gas&&'Gassy',effects.bladder&&(bladderDelay>8?'Restroom relief':'Needs the WC')].filter(Boolean).join(' · ');
+    if($('effects').textContent!==label)$('effects').textContent=label;
+    $('effects').hidden=!label;
+  }
+  function nearbyAction() {
+    const {x,z}=player.position;
+    const near=point=>Math.hypot(x-point.x,z-point.z)<2.35;
+    if(!inside(x) && near(outdoorDoor))return {label:'Enter school',run:()=>changeArea(true)};
+    if(inside(x) && near(interior.exit))return {label:'Exit to courtyard',run:()=>changeArea(false)};
+    if(effects.bladder && inside(x) && near(interior.restroom))return {
+      label:'Use restroom',
+      run:()=>{bladderDelay=9;notice('Much better. The juice will catch up again soon.');}
+    };
+    return null;
+  }
+  function changeArea(enter) {
+    player.position.set(enter?interior.origin:outdoorDoor.x,.03,enter?9:3.2);
+    yaw=enter?0:Math.PI;pitch=.22;
+    player.rotation.y=enter?Math.PI:0;
+    verticalSpeed=0;airborne=false;
+    notice(enter?'Inside Gedimino gimnazija':'School courtyard');
+  }
+  function interact() {
+    const action=nearbyAction();
+    if(action)action.run();
+    else pickupItem();
+  }
   const bottleBody=new T.CylinderGeometry(.077,.078,.24,12);
   const bottleNeck=new T.CylinderGeometry(.035,.055,.14,12);
   function spawnItem(id,x,z,y=groundAt(x,z),velocity=null) {
@@ -460,6 +533,8 @@ function boot() {
       ? items[slot.id].name+' × '+slot.count+' · Choose a destination slot.'
       : 'Select an item, then click a slot to move or stack it.';
     $('packThrow').disabled=!slot;
+    $('packUse').disabled=!slot;
+    $('packUse').textContent=slot?.id==='bun'?'Eat one':'Drink one';
   }
   function togglePack(open) {
     packOpen=open;grabbed=null;keys.clear();touchKeys.clear();dragging=false;
@@ -473,7 +548,9 @@ function boot() {
   $('closePack').onclick=()=>togglePack(false);
   $('packThrow').onclick=()=>throwItem(grabbed ?? selected);
   $('jumpButton').onclick=()=>jump();
-  $('pickButton').onclick=pickupItem;
+  $('pickButton').onclick=interact;
+  $('useButton').onclick=()=>useItem();
+  $('packUse').onclick=()=>useItem(grabbed ?? selected);
   $('throwButton').onclick=()=>throwItem();
   renderSlots();
   function jump() {
@@ -491,6 +568,8 @@ function boot() {
     player.rotation.y=Math.PI;
     yaw=0;pitch=.35;stride=0;
     airborne=false;verticalSpeed=0;health=100;stamina=100;recovery=0;exhausted=false;
+    for(const effect of Object.keys(effects))effects[effect]=0;
+    puffTime=0;puff.visible=false;
     updateVitals();
   }
   reset();
@@ -520,9 +599,9 @@ function boot() {
     if(e.code==='KeyI') {e.preventDefault();if(!e.repeat)togglePack(!packOpen);return;}
     if(packOpen)return;
     if(/^Digit[1-9]$/.test(e.code)){selected=Number(e.code.at(-1))-1;renderSlots();return;}
-    if(['Space','KeyE','KeyQ'].includes(e.code)) {
+    if(['Space','KeyE','KeyQ','KeyF'].includes(e.code)) {
       e.preventDefault();
-      if(!e.repeat) {if(e.code==='Space')jump();else if(e.code==='KeyE')pickupItem();else throwItem();}
+      if(!e.repeat) {if(e.code==='Space')jump();else if(e.code==='KeyE')interact();else if(e.code==='KeyF')useItem();else throwItem();}
       return;
     }
     if(!controls.includes(e.code))return;
@@ -559,6 +638,15 @@ function boot() {
   const down=(...codes)=>codes.some(code=>keys.has(code)||[...touchKeys.values()].includes(code));
   function drawMap(){
     const {x,z}=player.position;
+    if(inside(x)) {
+      map.fillStyle='#293830';map.fillRect(0,0,158,128);
+      map.fillStyle='#9b876c';map.fillRect(23,8,112,112);
+      map.fillStyle='#463f33';
+      for(const b of interior.walls)map.fillRect(79+(b.x-interior.origin-b.w/2)*4,64+(b.z-b.d/2)*4,Math.max(1,b.w*4),Math.max(1,b.d*4));
+      map.fillStyle='#d6fa87';map.beginPath();map.arc(79+(x-interior.origin)*4,64+z*4,3,0,Math.PI*2);map.fill();
+      $('zone').textContent=x<interior.origin-5?'Classroom':x>interior.origin+5?(z>5.5?'Restroom':'Assembly hall'):'School corridor';
+      return;
+    }
     const mx=v=>79+v*1.15,mz=v=>63+v*.98;
     map.fillStyle='#273e30';map.fillRect(0,0,158,128);
     map.fillStyle='#526455';map.fillRect(mx(-35),mz(-13),65,33);
@@ -567,6 +655,7 @@ function boot() {
     for(const tree of trees)map.fillRect(mx(tree.x),mz(tree.z),1.6,1.6);
     map.fillStyle='#cda291';
     for(const b of buildings)map.fillRect(mx(b.x-b.w/2),mz(b.z-b.d/2),b.w*1.15,b.d*.98);
+    map.fillStyle='#d6fa87';map.fillRect(mx(outdoorDoor.x)-2,mz(outdoorDoor.z)-2,4,4);
     map.fillStyle='#f0d574';
     for(const {model,velocity} of pickups)if(!velocity)map.fillRect(mx(model.position.x)-1,mz(model.position.z)-1,2,2);
     map.save();map.translate(mx(x),mz(z));map.rotate(-player.rotation.y);
@@ -606,6 +695,7 @@ function boot() {
         if(!recovery)stamina=Math.min(100,stamina+16*dt);
         if(stamina>=22)exhausted=false;
       }
+      updateEffects(dt,running && moving);
       updateVitals();
       if(moving) {
         const angle=Math.atan2(movement.x,movement.z);
@@ -620,18 +710,22 @@ function boot() {
       target.copy(player.position).add(direction.set(0,1.40,0));
       direction.set(0,Math.sin(pitch),Math.cos(pitch)).applyAxisAngle(T.Object3D.DEFAULT_UP,yaw).normalize();
       cameraRay.set(target,direction);
-      let distance=camera.aspect<.65?7.2:5.9;
-      for(const b of buildings) {
+      const indoors=inside(player.position.x);
+      let distance=indoors?3.4:camera.aspect<.65?7.2:5.9;
+      for(const b of indoors?interior.walls:buildings) {
         obstacle.min.set(b.x-b.w/2-.26,0,b.z-b.d/2-.26);
         obstacle.max.set(b.x+b.w/2+.26,11,b.z+b.d/2+.26);
         if(cameraRay.intersectBox(obstacle,intersection)) distance=Math.min(distance,Math.max(.65,target.distanceTo(intersection)-.12));
       }
       camera.position.copy(wanted.copy(target).addScaledVector(direction,distance));
+      if(indoors)camera.position.y=Math.min(camera.position.y,3.35);
       camera.lookAt(target);
+      if(effects.dizzy)camera.rotateZ(Math.sin(now*.005)*.095*Math.min(1,effects.dizzy/3));
       updatePickups(dt);
       messageTime=Math.max(0,messageTime-dt);
       const nearby=nearestItem();
-      const prompt=messageTime?pickupMessage:nearby?'E · Pick up '+items[nearby.id].name:'';
+      const action=nearbyAction();
+      const prompt=messageTime?pickupMessage:action?'E · '+action.label:nearby?'E · Pick up '+items[nearby.id].name:'';
       $('prompt').hidden=!prompt;
       if($('prompt').textContent!==prompt)$('prompt').textContent=prompt;
       drawMap();

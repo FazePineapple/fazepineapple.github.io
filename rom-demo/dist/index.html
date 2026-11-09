@@ -26,7 +26,7 @@
   <button id="menuButton">Esc &nbsp; Menu</button>
   <div class="map"><span>CAMPUS MAP <b>N ↑</b></span><canvas id="radar" width="158" height="128" aria-label="Campus map"></canvas></div>
     <button id="packButton">I &nbsp; Inventory</button>
-  <div id="prompt" role="status" hidden></div>
+  <div id="effects" hidden></div><div id="prompt" role="status" hidden></div>
   <div id="quickbar">
     <div class="vitals">
       <label>♥ Health <span id="hpValue">100</span><meter id="health" min="0" max="100" value="100"></meter></label>
@@ -34,15 +34,15 @@
     </div>
     <div id="hotbar" class="slots" aria-label="Hotbar"></div>
   </div>
-  <div class="help"><kbd>WASD</kbd> Walk <kbd>Shift</kbd> Run <kbd>Space</kbd> Jump <kbd>E</kbd> Pick up <kbd>Q</kbd> Throw <kbd>I</kbd> Inventory <kbd>Click + mouse</kbd> Look</div>
-  <div id="actions"><button id="jumpButton">Jump</button><button id="pickButton">Pick up</button><button id="throwButton">Throw</button></div>
+  <div class="help"><kbd>WASD</kbd> Walk <kbd>Shift</kbd> Run <kbd>Space</kbd> Jump <kbd>E</kbd> Interact <kbd>F</kbd> Eat / drink <kbd>Q</kbd> Throw <kbd>I</kbd> Inventory <kbd>Click + mouse</kbd> Look</div>
+  <div id="actions"><button id="jumpButton">Jump</button><button id="pickButton">Interact</button><button id="useButton">Eat / drink</button><button id="throwButton">Throw</button></div>
   <section id="inventory" aria-label="Inventory" hidden>
     <div class="inventory-panel">
       <h2>Inventory</h2>
       <p id="itemDetails">Select an item, then click a slot to move or stack it.</p>
       <div id="backpack" class="slots" aria-label="Backpack"></div>
       <div id="packHotbar" class="slots" aria-label="Inventory hotbar"></div>
-      <button id="packThrow">Throw one</button><button id="closePack">Back to game</button>
+      <button id="packUse">Drink one</button><button id="packThrow">Throw one</button><button id="closePack">Back to game</button>
     </div>
   </section>
   <div id="touch"><button data-key="KeyW" aria-label="Forward">↑</button><div><button data-key="KeyA" aria-label="Left">←</button><button data-key="KeyS" aria-label="Back">↓</button><button data-key="KeyD" aria-label="Right">→</button></div></div>
