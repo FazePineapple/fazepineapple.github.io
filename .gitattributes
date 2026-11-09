@@ -1,0 +1,9 @@
+# Same line endings on every machine so the built bundle is reproducible.
+* text=auto eol=lf
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.webp binary
+*.mp3 binary
+*.mp4 binary
+*.zip binary

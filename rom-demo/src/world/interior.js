@@ -204,12 +204,22 @@ export function buildInterior(T, scene, box, surface, texture, entrance) {
     const active=x===undefined?null:floorAt(x);
     if(active===litFloor)return;
     litFloor=active;
-    // Keep the light count fixed so crossing the doorway reuses the same shader programs.
+    // Outdoors the lights are removed from shading entirely (they cost every
+    // pixel even at zero intensity). Both shader variants are compiled at load
+    // (see precompile in main.js), so crossing the doorway does not hitch.
     sharedLights.forEach((light,index)=>{
+      light.visible=Boolean(active);
       light.intensity=active?(active.mapX?23:44):0;
       light.distance=active?.mapX?7:14;
       if(active)light.position.copy(active.lights[index]);
     });
   }
-  return {origin:entrance.x,walls,floors,floorAt,stairHeight,setLighting,restroom:{x:worldX(origin+9),z:worldZ(12)}};
+  return {
+    origin:entrance.x,walls,floors,floorAt,stairHeight,setLighting,
+    restroom:{x:worldX(origin+9),z:worldZ(12)},
+    /** World position of a point given in ground-floor plan coordinates (x and z within ±14). */
+    lobbyPoint:(x,z)=>({x:worldX(origin+x),z:worldZ(z)}),
+    /** World position of a point on an upper floor (index 1 or 2), in plan coordinates. */
+    floorPoint:(index,x,z)=>index===0?{x:worldX(origin+x),z:worldZ(z)}:{x:origin+index*spacing+x,z},
+  };
 }

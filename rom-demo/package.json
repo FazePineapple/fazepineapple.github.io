@@ -1,0 +1,11 @@
+{
+  "name": "rom-demo",
+  "private": true,
+  "type": "module",
+  "description": "The Legend of Rom — Three.js browser game",
+  "scripts": {
+    "build": "npx --yes esbuild@0.28.2 game.js --bundle --minify --loader:.jpg=dataurl --legal-comments=none --outfile=dist/game.bundle.js && node --check dist/game.bundle.js",
+    "test": "node --test \"tests/*.test.js\"",
+    "check": "npm test && npm run build"
+  }
+}

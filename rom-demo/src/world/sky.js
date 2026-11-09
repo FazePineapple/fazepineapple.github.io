@@ -3,12 +3,29 @@ export function createSky(T, scene, sun, ambient) {
   const midnightColor=new T.Color(0x121b35);
   const dayAmbient=new T.Color(0xe1f0ff);
   const nightAmbient=new T.Color(0x90a9e5);
-  const lampMaterial=new T.MeshStandardMaterial({
+  const lampMaterial=new T.MeshLambertMaterial({
     color:0xaca493, emissive:0xffd393, emissiveIntensity:0,
   });
-  const lights=[];
   const sky=new T.Group();
   scene.add(sky);
+  // Lamp light pools are additive decals instead of real point lights: every
+  // real light is evaluated for every pixel of every lit material, while a
+  // decal costs one small draw.
+  const poolCanvas=document.createElement('canvas');
+  poolCanvas.width=poolCanvas.height=64;
+  const poolContext=poolCanvas.getContext('2d');
+  const poolGradient=poolContext.createRadialGradient(32,32,0,32,32,32);
+  poolGradient.addColorStop(0,'rgba(255,214,150,.85)');
+  poolGradient.addColorStop(.45,'rgba(255,196,120,.32)');
+  poolGradient.addColorStop(1,'rgba(255,190,110,0)');
+  poolContext.fillStyle=poolGradient;poolContext.fillRect(0,0,64,64);
+  const poolMap=new T.CanvasTexture(poolCanvas);
+  poolMap.colorSpace=T.SRGBColorSpace;
+  const poolMaterial=new T.MeshBasicMaterial({map:poolMap,transparent:true,depthWrite:false,blending:T.AdditiveBlending,opacity:0});
+  const poolShape=new T.PlaneGeometry(9,9);
+  const pools=new T.Group();
+  pools.visible=false;
+  scene.add(pools);
 
   function skyTexture(size, paint) {
     const canvas=document.createElement('canvas');
@@ -76,12 +93,15 @@ export function createSky(T, scene, sun, ambient) {
   return {
     lampMaterial,
     addLamp(x,y,z) {
-      const lamp=new T.PointLight(0xffcd8e,0,12,2);
-      lamp.position.set(x,y,z);
-      scene.add(lamp);
-      lights.push(lamp);
+      const pool=new T.Mesh(poolShape,poolMaterial);
+      pool.rotation.x=-Math.PI/2;
+      pool.position.set(x,.06,z);
+      pool.renderOrder=1;
+      pools.add(pool);
     },
     toggle,
+    hour:()=>hour,
+    setHour(value){if(Number.isFinite(value))hour=((value%24)+24)%24;},
     minute:()=>Math.floor(hour*60),
     time() {
       const minutes=Math.floor(hour*60);
@@ -97,7 +117,8 @@ export function createSky(T, scene, sun, ambient) {
       ambient.intensity=T.MathUtils.lerp(2.1,.68,blend);
       sun.intensity=T.MathUtils.lerp(2.35,.07,blend);
       lampMaterial.emissiveIntensity=blend*3;
-      for(const lamp of lights)lamp.intensity=blend*65;
+      poolMaterial.opacity=blend*.75;
+      pools.visible=outdoors && blend>.02;
 
       sky.visible=outdoors;
       if(!outdoors)return;

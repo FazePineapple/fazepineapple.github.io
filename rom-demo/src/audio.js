@@ -12,6 +12,8 @@ export function createAudio() {
     foam:[['triangle',151,94,.48,.055],['sawtooth',72,58,.42,.018]],
     cough:[['sawtooth',180,87,.13,.085],['triangle',162,75,.16,.085,.18]],
     shot:[['sawtooth',170,45,.14,.11]],
+    questStart:[['triangle',523,523,.16,.08],['triangle',659,659,.22,.08,.12]],
+    questComplete:[['triangle',523,523,.14,.08],['triangle',659,659,.14,.08,.11],['triangle',784,784,.32,.09,.22]],
   };
   function start() {
     if(!context && window.AudioContext) {
@@ -46,7 +48,7 @@ export function createAudio() {
       if(output)output.gain.value=enabled?masterVolume:0;
     },
     play(name) {
-      if(!context||!enabled)return;
+      if(!context||!enabled||!voices[name])return;
       for(const [type,from,to,duration,volume,delay=0] of voices[name]) {
         const now=context.currentTime+delay;
         const oscillator=context.createOscillator(), gain=context.createGain();

@@ -1,14 +1,27 @@
-export function createStory(notice) {
-  const button = document.getElementById('journalButton');
-  const dialog = document.getElementById('journal');
-  const content = document.getElementById('journalContent');
+/**
+ * Optional online progress tracking (account sign-in, server achievements).
+ *
+ * Only active when dist/story-config.json names an HTTPS API (the Pages site
+ * ships one) or when served from localhost with the API on the same origin.
+ * Without it the menu shows nothing and the game plays fully offline. Stats
+ * come from the event bus, so gameplay code never calls this module.
+ */
+const metrics = {
+  'item:picked':'pickups', 'bot:defeated':'defeats', 'floor:entered':'floors',
+  'player:jump':'jumps', 'player:died':'deaths',
+};
+
+export function createTracking(bus, notice) {
+  const button = document.getElementById('profileButton');
+  const dialog = document.getElementById('profileDialog');
+  const content = document.getElementById('profileContent');
   const status = document.getElementById('storyStatus');
   const form = document.getElementById('storyAccount');
   const message = document.getElementById('storyMessage');
   const signOut = document.getElementById('storySignOut');
   const events = [];
-  const local = ['localhost','127.0.0.1'].includes(location.hostname);
-  let endpoint = local ? location.origin : '';
+  const local = ['localhost', '127.0.0.1'].includes(location.hostname);
+  let endpoint = '';
   let token = '';
   let state;
   let online = false;
@@ -25,8 +38,10 @@ export function createStory(notice) {
   }
 
   function render() {
-    status.textContent = !online ? 'Not connected · progress tracking off' :
-      state ? 'Tracking as ' + state.username : 'Connected · sign in to track progress';
+    button.hidden = !endpoint;
+    status.hidden = !endpoint;
+    status.textContent = !online ? 'Online profile offline · progress saved on this device' :
+      state ? 'Online profile · ' + state.username : 'Online profile available · sign in to sync';
     form.hidden = !online || Boolean(state);
     signOut.hidden = !token;
     content.replaceChildren();
@@ -41,24 +56,15 @@ export function createStory(notice) {
         item.textContent = row;
         list.append(item);
       }
-      content.append(heading,list);
+      content.append(heading, list);
     }
-    for (const [kind,title] of [['main','Main storyline'],['side','Side quests']]) {
-      section(title,state.quests.filter(quest => quest.kind === kind).map(quest => {
-        const progress = quest.progress;
-        if (progress?.done) return quest.title + ' · Complete';
-        if (quest.locked) return quest.title + ' · Locked';
-        const step = quest.steps[progress?.step ?? 0];
-        return quest.title + ' · ' + step.label + ' (' + Math.floor(progress?.amount ?? 0) + '/' + step.target + ')';
-      }));
-    }
-    section('Achievements',state.achievements.map(entry =>
+    section('Achievements', state.achievements.map(entry =>
       entry.title + ' · ' + (entry.unlocked ? 'Unlocked' : (Math.floor(state.stats[entry.metric] ?? 0) + '/' + entry.target))));
   }
 
   function request(path, options = {}) {
     return fetch(endpoint + '/api/story' + path, {
-      ...options, credentials:'omit', cache:'no-store', signal:AbortSignal.timeout(5000)
+      ...options, credentials:'omit', cache:'no-store', signal:AbortSignal.timeout(5000),
     });
   }
 
@@ -73,9 +79,9 @@ export function createStory(notice) {
         method:'POST',
         headers:{...headers, 'Content-Type':'application/json'},
         body:JSON.stringify({
-          id:Array.from(crypto.getRandomValues(new Uint32Array(4)), part => part.toString(16).padStart(8,'0')).join(''),
-          events:batch
-        })
+          id:Array.from(crypto.getRandomValues(new Uint32Array(4)), part => part.toString(16).padStart(8, '0')).join(''),
+          events:batch,
+        }),
       } : {headers});
       if (session !== token) return;
       if (session && response.status === 401) {
@@ -106,6 +112,18 @@ export function createStory(notice) {
     }
   }
 
+  function record(metric, amount = 1) {
+    if (!online || !state || events.length >= 500) return;
+    const last = events.at(-1);
+    if (last?.[0] === metric && ['walked', 'sprinted'].includes(metric) && last[1] + amount <= 100) last[1] += amount;
+    else events.push([metric, amount]);
+  }
+
+  bus.on('*', (payload, type) => {
+    if (type === 'player:moved') record(payload.running ? 'sprinted' : 'walked', payload.distance);
+    else if (metrics[type]) record(metrics[type]);
+  });
+
   button.addEventListener('click', () => { dialog.showModal(); render(); void sync(); });
   signOut.addEventListener('click', () => {
     remember('');
@@ -116,14 +134,14 @@ export function createStory(notice) {
   });
   form.addEventListener('submit', async event => {
     event.preventDefault();
-    const {username,password} = Object.fromEntries(new FormData(form));
+    const {username, password} = Object.fromEntries(new FormData(form));
     const register = event.submitter?.value === 'register';
     const buttons = [...form.querySelectorAll('button')];
-    buttons.forEach(button => { button.disabled = true; });
+    buttons.forEach(entry => { entry.disabled = true; });
     try {
       const response = await request('/account', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({username,password,register})
+        body:JSON.stringify({username, password, register}),
       });
       const result = await response.json();
       if (!response.ok) {
@@ -138,32 +156,28 @@ export function createStory(notice) {
       message.textContent = 'Tracking server unavailable. You can still play.';
       void sync();
     } finally {
-      buttons.forEach(button => { button.disabled = false; });
+      buttons.forEach(entry => { entry.disabled = false; });
     }
   });
 
   async function connect() {
-    if (!local && location.protocol === 'https:') {
+    if (local) endpoint = location.origin;
+    else if (location.protocol === 'https:') {
       try {
         const config = await (await fetch('story-config.json', {cache:'no-store', signal:AbortSignal.timeout(5000)})).json();
         const url = new URL(config.api);
         if (url.protocol === 'https:' && !url.username && !url.password) endpoint = url.origin;
       } catch {
-        // The game can run without tracking configuration.
+        // No tracking configuration: play offline.
       }
     }
-    if (!endpoint) return;
-    try { token = localStorage.getItem('romgame-session:' + endpoint) ?? ''; } catch {}
-    void sync();
-    setInterval(sync, 5000);
+    if (!endpoint) { render(); return; }
+    try { token = localStorage.getItem('romgame-session:' + endpoint) ?? ''; } catch { /* Storage blocked. */ }
+    await sync();
+    // Stop polling when the server is unreachable; opening the profile retries.
+    setInterval(() => { if (online) void sync(); }, 5000);
   }
 
   render();
   void connect();
-  return (metric, amount = 1) => {
-    if (!online || !state || events.length >= 500) return;
-    const last = events.at(-1);
-    if (last?.[0] === metric && ['walked','sprinted'].includes(metric) && last[1] + amount <= 100) last[1] += amount;
-    else events.push([metric, amount]);
-  };
 }

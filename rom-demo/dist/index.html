@@ -13,15 +13,16 @@
   <header><span class="mark">R</span><span>NEMENČINĖ<br><small>CAMPUS STORIES</small></span><span class="version">DEMO / 01</span></header>
   <img class="rom" src="rom.jpg" alt="Full-body photo of Rom wearing a denim jacket">
   <div class="intro">
-    <div class="eyebrow"><i></i> FREE ROAM DEMO</div>
+    <div class="eyebrow"><i></i> STORY DEMO</div>
     <h1 id="title"><span>THE LEGEND OF</span><strong>ROM</strong></h1>
-    <p>Explore Nemenčinės Gedimino gimnazija as Rom, a student with the campus to himself.</p>
+    <p>Explore Nemenčinės Gedimino gimnazija as Rom, a student with a busy first day back.</p>
     <button id="start">Start game <b>↗</b></button>
     <button id="settingsButton">Settings</button>
-    <button id="journalButton">Quest journal</button>
-    <p id="storyStatus" role="status">Not connected · progress tracking off</p>
-    <dialog id="journal" style="max-width:min(36rem, 90vw);max-height:80vh">
-      <h2>Quest journal</h2>
+    <button id="newGame" class="secondary" hidden>New game</button>
+    <button id="profileButton" class="secondary" hidden>Online profile</button>
+    <p id="storyStatus" role="status" hidden></p>
+    <dialog id="profileDialog">
+      <h2>Online profile</h2>
       <form id="storyAccount" hidden>
         <p><label>Username <input name="username" autocomplete="username" required minlength="3" maxlength="32"></label></p>
         <p><label>Password <input name="password" type="password" autocomplete="current-password" required minlength="10" maxlength="128"></label></p>
@@ -29,7 +30,7 @@
         <button value="register">Create account</button>
       </form>
       <p id="storyMessage" role="status"></p>
-      <div id="journalContent"></div>
+      <div id="profileContent"></div>
       <button id="storySignOut" type="button" hidden>Sign out</button>
       <form method="dialog"><button>Close</button></form>
     </dialog>
@@ -38,26 +39,36 @@
   <footer><span>01 / GEDIMINO GIMNAZIJA</span><span>14 EŽERO G. · NEMENČINĖ</span></footer>
 </section>
 <section id="hud" hidden aria-label="Game controls">
-  <div class="location"><span>FREE ROAM</span><strong id="zone">School courtyard</strong><span id="clock" aria-label="In-game time">08:00</span></div>
+  <div class="location"><span>LOCATION</span><strong id="zone">School courtyard</strong><span id="clock" aria-label="In-game time">08:00</span></div>
+  <div id="objective" hidden aria-live="polite"><span id="objectiveKind">MAIN STORY</span><strong id="objectiveTitle"></strong><p id="objectiveText"></p></div>
+  <div id="toasts" aria-live="polite"></div>
+  <div id="waypoint" hidden aria-hidden="true"><i></i><span id="waypointLabel"></span></div>
   <button id="menuButton">Esc &nbsp; Menu</button>
-  <div class="map"><span>CAMPUS MAP <b>N ↑</b></span><canvas id="radar" width="158" height="128" aria-label="Campus map"></canvas></div>
+  <div class="side-buttons">
     <button id="packButton"><span data-binding="KeyI">I</span> &nbsp; Inventory</button>
-  <button id="emoteButton"><span data-binding="KeyB">B</span> &nbsp; Emotes</button><button id="soundButton">Sound on</button><div id="deathScreen" role="status" hidden><strong>WASTED</strong></div><div id="reticle" aria-hidden="true" hidden>+</div><div id="flight" hidden>Jetpack · Hold jump to thrust</div><div id="effects" hidden></div><div id="prompt" role="status" hidden></div>
+    <button id="journalButton"><span data-binding="KeyL">L</span> &nbsp; Journal</button>
+    <button id="emoteButton"><span data-binding="KeyB">B</span> &nbsp; Emotes</button>
+    <button id="soundButton">Sound on</button>
+  </div>
+  <div class="map"><span>CAMPUS MAP <b>N ↑</b></span><canvas id="radar" width="158" height="128" aria-label="Campus map"></canvas></div>
+  <div id="deathScreen" role="status" hidden><strong>WASTED</strong></div><div id="reticle" aria-hidden="true" hidden>+</div><div id="flight" hidden>Jetpack · Hold jump to thrust</div><div id="effects" hidden></div>
   <div id="quickbar">
+    <div id="prompt" role="status" hidden></div>
     <div class="vitals">
       <label>♥ Health <span id="hpValue">100</span><meter id="health" min="0" max="100" value="100"></meter></label>
       <label>ϟ Stamina <span id="spValue">100</span><meter id="stamina" min="0" max="100" value="100"></meter></label>
     </div>
-        <div class="vitals secondary-vitals">
+    <div class="vitals secondary-vitals">
       <label>Bladder <span id="bladderValue">0</span><meter id="bladder" min="0" max="100" value="0"></meter></label>
       <label>Gas <span id="gasValue">0</span><meter id="gas" min="0" max="100" value="0"></meter></label>
       <label>Bowel <span id="bowelValue">0</span><meter id="bowel" min="0" max="100" value="0"></meter></label>
     </div>
     <div id="equipped" aria-label="Equipped weapon"></div><div id="hotbar" class="slots" aria-label="Hotbar"></div>
   </div>
-  <div class="help"><kbd data-binding="KeyW KeyA KeyS KeyD">WASD</kbd> Walk <kbd data-binding="ShiftLeft">Shift</kbd> Run <kbd data-binding="Space">Space</kbd> Jump <kbd data-binding="KeyE">E</kbd> Interact <kbd data-binding="KeyF">F</kbd> Use / equip <kbd data-binding="KeyX" data-binding-prefix="LMB / ">LMB / X</kbd> Use held item <kbd data-binding="KeyQ">Q</kbd> Throw <kbd data-binding="KeyI">I</kbd> Inventory <kbd data-binding="KeyB">B</kbd> Emotes <kbd data-binding="KeyN">N</kbd> Day / night <kbd data-binding="KeyV">V</kbd> Camera <kbd data-binding="KeyC">C</kbd> Climb <kbd data-binding="KeyJ">J</kbd> Jetpack <kbd>Click + mouse</kbd> Look</div>
+  <div id="help" class="help"><kbd data-binding="KeyW KeyA KeyS KeyD">WASD</kbd> Walk <kbd data-binding="ShiftLeft">Shift</kbd> Run <kbd data-binding="Space">Space</kbd> Jump <kbd data-binding="KeyE">E</kbd> Interact <kbd data-binding="KeyF">F</kbd> Use <kbd data-binding="KeyX" data-binding-prefix="LMB / ">LMB / X</kbd> Use held item <kbd data-binding="KeyQ">Q</kbd> Throw <kbd>1–9</kbd> Hotbar <kbd data-binding="KeyL">L</kbd> Journal <kbd data-binding="KeyN">N</kbd> Day / night <kbd data-binding="KeyV">V</kbd> Camera <kbd data-binding="KeyC">C</kbd> Climb <kbd data-binding="KeyJ">J</kbd> Jetpack <kbd data-binding="KeyR">R</kbd> Unstuck <kbd data-binding="KeyH">H</kbd> Hide help</div>
+  <button id="helpHint" class="help-hint" hidden><span data-binding="KeyH">H</span> &nbsp; Controls</button>
   <div id="actions"><button id="jumpButton">Jump</button><button id="jetButton">Jetpack</button><button id="pickButton">Interact</button><button id="useButton">Use / equip</button><button id="attackButton">Use held item</button><button id="throwButton">Throw</button></div>
-  <section id="emotes" aria-label="Emotes" hidden>
+  <section id="emotes" class="overlay" aria-label="Emotes" hidden>
     <div class="inventory-panel">
       <h2>Emotes</h2>
       <div class="emote-grid">
@@ -68,13 +79,27 @@
       <button>Back to game</button>
     </div>
   </section>
-  <section id="inventory" aria-label="Inventory" hidden>
+  <section id="inventory" class="overlay" aria-label="Inventory" hidden>
     <div class="inventory-panel">
       <h2>Inventory</h2>
       <p id="itemDetails">Select an item, then click a slot to move or stack it.</p>
       <div id="backpack" class="slots" aria-label="Backpack"></div>
       <div id="packHotbar" class="slots" aria-label="Inventory hotbar"></div>
-      <button id="packUse">Drink one</button><button id="packThrow">Throw one</button><button id="closePack">Back to game</button>
+      <button id="packUse">Use one</button><button id="packThrow">Throw one</button><button id="closePack">Back to game</button>
+    </div>
+  </section>
+  <section id="questLog" class="overlay" aria-label="Quest journal" hidden>
+    <div class="inventory-panel journal-panel">
+      <h2>Journal</h2>
+      <div id="questLogContent"></div>
+      <button id="closeQuestLog">Back to game</button>
+    </div>
+  </section>
+  <section id="dialogue" aria-label="Conversation" hidden>
+    <div class="dialogue-panel">
+      <strong id="dialogueSpeaker"></strong>
+      <p id="dialogueText"></p>
+      <div id="dialogueChoices"></div>
     </div>
   </section>
   <div id="touch"><button data-key="KeyW" aria-label="Forward">↑</button><div><button data-key="KeyA" aria-label="Left">←</button><button data-key="KeyS" aria-label="Back">↓</button><button data-key="KeyD" aria-label="Right">→</button></div></div>
@@ -87,6 +112,7 @@
       <label><input id="settingsMute" type="checkbox"> Mute sound</label>
       <label>Mouse sensitivity <input id="lookSensitivity" type="range" min=".25" max="2.5" step=".05" value="1"></label>
       <label><input id="invertLook" type="checkbox"> Invert vertical look</label>
+      <label>Graphics <select id="graphicsQuality"><option value="auto">Auto (adaptive)</option><option value="high">High</option><option value="performance">Performance</option></select></label>
     </div>
     <p id="bindingMessage" role="status"></p>
     <div id="bindings"></div>

@@ -1,6 +1,10 @@
 import {createBotAppearance} from './bot-appearance.js';
 
-export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=()=>{}, onDefeat=()=>{}) {
+/**
+ * Practice bots: patrol, chase and hit back, react to gas and being seen in
+ * the toilet, and respawn. Emits 'bot:hit' and 'bot:defeated' on the bus.
+ */
+export function createCombat({T, scene, box, oval, groundAt, blocked, playSound=()=>{}, bus}) {
   const bots=[];
   const courtyard=new T.Group();
   scene.add(courtyard);
@@ -62,13 +66,15 @@ export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=(
     }
     return true;
   }
-  function damageBot(bot,amount,sound='botHit') {
+  function damageBot(bot,amount,sound='botHit',source='attack') {
+    if(!bot.hp)return;
     bot.hp=Math.max(0,bot.hp-amount);
     if(!bot.hp)playSound('botDeath');
     else if(sound)playSound(sound);
     bot.bar.draw(bot.hp,bot.name);
+    bus?.emit('bot:hit',{name:bot.name,profile:bot.profile.name,damage:amount,source,defeated:!bot.hp});
     if(bot.hp)return;
-    onDefeat();
+    bus?.emit('bot:defeated',{name:bot.name,profile:bot.profile.name,source});
     bot.model.visible=false;bot.respawn=15;bot.alert=0;bot.gas=0;
   }
   return {
@@ -86,7 +92,7 @@ export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=(
         delta.sub(position);
         const distance=delta.length();
         if(distance>weapon.range || (distance>.01 && delta.dot(heading)<distance*weapon.aim))continue;
-        damageBot(bot,weapon.damage,bot.coughTime<=0?'cough':null);
+        damageBot(bot,weapon.damage,bot.coughTime<=0?'cough':null,'spray');
         if(bot.coughTime<=0)bot.coughTime=.72;
         if(bot.hp)bot.alert=7;
         hits++;
@@ -105,7 +111,7 @@ export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=(
         return Math.abs(forward.y)<.75*profile.scale && Math.hypot(forward.x,forward.z)<.55*profile.scale;
       });
       if(!bot)return false;
-      damageBot(bot,damage);
+      damageBot(bot,damage,'botHit','throw');
       if(bot.hp)bot.alert=7;
       return true;
     },
@@ -134,7 +140,7 @@ export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=(
         }
         if(bot.gas>0) {
           bot.gas-=dt;bot.gasTick-=dt;
-          if(bot.gasTick<=0){damageBot(bot,3);bot.gasTick=.6;}
+          if(bot.gasTick<=0){damageBot(bot,3,'botHit','gas');bot.gasTick=.6;}
           if(!bot.hp)continue;
         }
         const p=model.position;
@@ -207,7 +213,7 @@ export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=(
         tracerTime=.12;tracer.visible=true;tracer.material.opacity=1;
       }
       if(!target)return 'Miss';
-      damageBot(target,weapon.damage);
+      damageBot(target,weapon.damage,'botHit',weapon.ranged?'shot':'melee');
       if(target.hp){target.alert=7;return target.name+' · '+target.hp+' HP';}
       return target.name+' defeated';
     }

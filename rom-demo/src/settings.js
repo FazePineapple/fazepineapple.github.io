@@ -1,11 +1,12 @@
 const actions={
   KeyW:'Forward', KeyA:'Move left', KeyS:'Back', KeyD:'Move right',
   ShiftLeft:'Sprint', Space:'Jump', KeyE:'Interact', KeyF:'Use or equip',
-  KeyX:'Attack', KeyQ:'Throw', KeyI:'Inventory', KeyB:'Emotes',
-  KeyV:'Camera view', KeyN:'Day or night', KeyC:'Climb', KeyJ:'Jetpack', KeyR:'Reset position',
+  KeyX:'Attack', KeyQ:'Throw', KeyI:'Inventory', KeyB:'Emotes', KeyL:'Quest journal',
+  KeyV:'Camera view', KeyN:'Day or night', KeyC:'Climb', KeyJ:'Jetpack', KeyR:'Get unstuck', KeyH:'Controls help',
 };
 const storageKey='romgame.settings.v1';
-const defaults={volume:1,muted:false,sensitivity:1,invert:false,bindings:{}};
+const defaults={volume:1,muted:false,sensitivity:1,invert:false,quality:'auto',bindings:{}};
+const qualities=['auto','high','performance'];
 
 function loadSettings() {
   let saved;
@@ -16,6 +17,7 @@ function loadSettings() {
   if(Number.isFinite(saved.sensitivity))settings.sensitivity=Math.min(2.5,Math.max(.25,saved.sensitivity));
   settings.muted=saved.muted===true;
   settings.invert=saved.invert===true;
+  if(qualities.includes(saved.quality))settings.quality=saved.quality;
   const assigned=new Set();
   for(const action of Object.keys(actions)) {
     const candidate=saved.bindings?.[action]??action;
@@ -48,8 +50,16 @@ export function createSettings(document,audio) {
   const message=byId('bindingMessage');
   const volume=byId('masterVolume'), mute=byId('settingsMute');
   const sensitivity=byId('lookSensitivity'), invert=byId('invertLook');
+  const quality=byId('graphicsQuality');
   const rows=byId('bindings');
   let values=loadSettings(), pending=null;
+  const qualityListeners=[];
+  let appliedQuality=null;
+  const notifyQuality=()=>{
+    if(appliedQuality===values.quality)return;
+    appliedQuality=values.quality;
+    for(const listener of qualityListeners)listener(values.quality);
+  };
   const buttons=new Map();
   const binding=action=>values.bindings[action]??action;
   const key=physical=>Object.keys(actions).find(action=>binding(action)===physical)??(Object.hasOwn(actions,physical)?'':physical);
@@ -75,6 +85,8 @@ export function createSettings(document,audio) {
     mute.checked=values.muted;
     sensitivity.value=String(values.sensitivity);
     invert.checked=values.invert;
+    quality.value=values.quality;
+    notifyQuality();
     audio.setVolume(values.volume);
     audio.setMuted(values.muted);
     byId('soundButton').textContent=values.muted?'Sound off':'Sound on';
@@ -104,6 +116,7 @@ export function createSettings(document,audio) {
   mute.onchange=()=>{values.muted=mute.checked;save();};
   sensitivity.oninput=()=>{values.sensitivity=Number(sensitivity.value);save();};
   invert.onchange=()=>{values.invert=invert.checked;save();};
+  quality.onchange=()=>{values.quality=qualities.includes(quality.value)?quality.value:'auto';save();};
   document.addEventListener('keydown',event=>{
     if(panel.hidden)return;
     if(event.code==='Escape') {
@@ -130,6 +143,10 @@ export function createSettings(document,audio) {
   render();
   return {
     key,
+    /** Display label of the key currently bound to an action, e.g. label('KeyE') → 'E'. */
+    label:action=>keyLabel(binding(action)),
+    /** Calls `listener(mode)` now and whenever the graphics quality changes. */
+    onQuality(listener){qualityListeners.push(listener);listener(values.quality);},
     look(delta,vertical=false) {
       return delta*values.sensitivity*(vertical&&values.invert?-1:1);
     },

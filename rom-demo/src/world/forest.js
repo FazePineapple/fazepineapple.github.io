@@ -12,7 +12,7 @@ export function addPineForest(T, scene, trees, texture, normalMap) {
       c.fillRect(x,y,1+random()*2,3+random()*19);
     }
   },2);
-  const barkMaterial=new T.MeshStandardMaterial({map:bark,normalMap:normalMap(bark,1.65),roughness:1});
+  const barkMaterial=new T.MeshLambertMaterial({map:bark,normalMap:normalMap(bark,1.65)});
   const foliage=texture(256,c=>{
     const colors=['#233f2b','#365338','#476544','#58754d','#688455'];
     // Build open sprays rather than filling the crown with a solid silhouette.
@@ -33,8 +33,8 @@ export function addPineForest(T, scene, trees, texture, normalMap) {
       }
     }
   });
-  const foliageMaterial=new T.MeshStandardMaterial({
-    map:foliage,alphaTest:.42,side:T.DoubleSide,roughness:1
+  const foliageMaterial=new T.MeshLambertMaterial({
+    map:foliage,alphaTest:.42,side:T.DoubleSide
   });
   const barkParts=[], crowns=[];
   const up=new T.Vector3(0,1,0), direction=new T.Vector3();
