@@ -1,5 +1,6 @@
 import {items, createInventory} from './inventory.js';
 import {buildInterior} from './interior.js';
+import {createCombat} from './combat.js';
 import * as T from './three.module.js';
 import romPhoto from './dist/rom.jpg';
 
@@ -335,6 +336,36 @@ function boot() {
   const block=(x,z) => inside(x) ? hits(interior.walls,x,z) : Math.abs(x)>63 || Math.abs(z)>58 ||
     buildings.some(b=>Math.abs(x-b.x)<b.w/2+.38 && Math.abs(z-b.z)<b.d/2+.38) ||
     trees.some(t=>(x-t.x)**2+(z-t.z)**2<.58**2);
+  const combat=createCombat(T,scene,box,oval,groundAt,block);
+  const fists={name:'Fists',damage:18,range:2,aim:.42,cooldown:.48};
+  let equipped=null, attackTime=0, swing=0;
+  const held=new T.Group();
+  held.position.set(.025,-.43,.10);
+  limbs[1].arm.add(held);
+  function weaponModel(id,parent) {
+    if(id==='dagger') {
+      box(0,.064,0,.055,.128,.053,0x665138,parent);
+      box(0,.13,0,.14,.032,.055,0xd2a74f,parent);
+      box(0,.235,0,.075,.19,.024,0xd5e1dc,parent);
+      box(0,.331,0,.043,.047,.022,0xd5e1dc,parent).rotation.z=Math.PI/4;
+    } else {
+      box(0,.08,0,.075,.16,.09,0x3a5260,parent);
+      box(0,.17,.065,.105,.085,.23,0x527f95,parent);
+      box(0,.17,.185,.112,.087,.028,0xeb934a,parent);
+    }
+  }
+  function equip(id) {
+    equipped=equipped===id?null:id;
+    held.clear();
+    if(equipped)weaponModel(equipped,held);
+    renderSlots();
+  }
+  function attack() {
+    if(attackTime>0)return;
+    const weapon=equipped?items[equipped].weapon:fists;
+    attackTime=weapon.cooldown;swing=.26;
+    notice(weapon.name+' · '+combat.attack(player.position,yaw,weapon));
+  }
   const inventory=createInventory();
   let selected=0, grabbed=null, packOpen=false;
   let health=100, stamina=100, exhausted=false, recovery=0;
@@ -346,6 +377,8 @@ function boot() {
     new T.MeshBasicMaterial({color:0xafc575,transparent:true,depthWrite:false}));
   puff.visible=false;scene.add(puff);
   function useItem(index=selected) {
+    const slot=inventory.slots[index];
+    if(slot && items[slot.id].weapon){equip(slot.id);return;}
     const id=inventory.take(index);
     if(!id){notice('Selected slot is empty');return;}
     for(const effect of items[id].effects) {
@@ -410,7 +443,8 @@ function boot() {
     const model=new T.Group();
     scene.add(model);
     model.position.set(x,y,z);
-    if(id==='juice') {
+    if(items[id].weapon)weaponModel(id,model);
+    else if(id==='juice') {
       box(0,.135,0,.18,.27,.13,0xf09d36,model);
       box(0,.15,.067,.11,.12,.012,0xf8f0bf,model);
       box(.04,.197,.079,.017,.15,.015,0xe5e9db,model).rotation.z=.11;
@@ -430,6 +464,8 @@ function boot() {
     marker.visible=!velocity;
     pickups.push({id,model,marker,velocity,delay:velocity?.y ? .6 : 0});
   }
+  spawnItem('dagger',-4,23);
+  spawnItem('blaster',3,24);
   spawnItem('juice',-9,19);
   spawnItem('bun',-6,16.6);
   spawnItem('beer',-12,15);
@@ -513,12 +549,16 @@ function boot() {
     }
   }
   function renderSlots() {
+    if(equipped && !inventory.slots.some(slot=>slot?.id===equipped)) {
+      equipped=null;held.clear();
+    }
+    $('equipped').textContent=equipped?items[equipped].name:'Fists';
     for(const [group,start,end] of groups) for(let index=start;index<end;index++) {
       const button=group.children[index-start];
       const slot=inventory.slots[index];
       const description=slot?items[slot.id].name+' × '+slot.count:'Empty';
       button.setAttribute('aria-label','Slot '+(index+1)+': '+description);
-      button.title=description;
+      button.title=slot&&items[slot.id].description?description+' · '+items[slot.id].description:description;
       button.classList.toggle('selected',group===$('hotbar')?index===selected:index===grabbed);
       button.textContent=slot?items[slot.id].icon:'';
       if(index<9) {
@@ -534,7 +574,8 @@ function boot() {
       : 'Select an item, then click a slot to move or stack it.';
     $('packThrow').disabled=!slot;
     $('packUse').disabled=!slot;
-    $('packUse').textContent=slot?.id==='bun'?'Eat one':'Drink one';
+    $('packUse').textContent=slot && items[slot.id].weapon?(slot.id===equipped?'Unequip':'Equip'):slot?.id==='bun'?'Eat one':'Drink one';
+    if(slot && items[slot.id].description)$('itemDetails').textContent=items[slot.id].description;
   }
   function togglePack(open) {
     packOpen=open;grabbed=null;keys.clear();touchKeys.clear();dragging=false;
@@ -550,6 +591,7 @@ function boot() {
   $('jumpButton').onclick=()=>jump();
   $('pickButton').onclick=interact;
   $('useButton').onclick=()=>useItem();
+  $('attackButton').onclick=attack;
   $('packUse').onclick=()=>useItem(grabbed ?? selected);
   $('throwButton').onclick=()=>throwItem();
   renderSlots();
@@ -599,9 +641,9 @@ function boot() {
     if(e.code==='KeyI') {e.preventDefault();if(!e.repeat)togglePack(!packOpen);return;}
     if(packOpen)return;
     if(/^Digit[1-9]$/.test(e.code)){selected=Number(e.code.at(-1))-1;renderSlots();return;}
-    if(['Space','KeyE','KeyQ','KeyF'].includes(e.code)) {
+    if(['Space','KeyE','KeyQ','KeyF','KeyX'].includes(e.code)) {
       e.preventDefault();
-      if(!e.repeat) {if(e.code==='Space')jump();else if(e.code==='KeyE')interact();else if(e.code==='KeyF')useItem();else throwItem();}
+      if(!e.repeat) {if(e.code==='Space')jump();else if(e.code==='KeyE')interact();else if(e.code==='KeyF')useItem();else if(e.code==='KeyX')attack();else throwItem();}
       return;
     }
     if(!controls.includes(e.code))return;
@@ -695,6 +737,13 @@ function boot() {
         if(!recovery)stamina=Math.min(100,stamina+16*dt);
         if(stamina>=22)exhausted=false;
       }
+      attackTime=Math.max(0,attackTime-dt);
+      swing=Math.max(0,swing-dt);
+      combat.update(dt,player,amount=>{
+        health=Math.max(0,health-amount);
+        if(!health){reset();notice('Back at the courtyard');}
+        else notice('Practice bot hit · −'+amount+' health');
+      });
       updateEffects(dt,running && moving);
       updateVitals();
       if(moving) {
@@ -706,6 +755,7 @@ function boot() {
         leg.rotation.x=T.MathUtils.lerp(leg.rotation.x,airborne?side*.32:moving?Math.sin(stride)*side*(running?.9:.58):0,.24);
         arm.rotation.x=-leg.rotation.x*.76;
       }
+      if(swing)limbs[1].arm.rotation.x=-Math.sin(swing/.26*Math.PI)*1.8;
       torso.position.y=moving?Math.abs(Math.sin(stride))*.045:0;
       target.copy(player.position).add(direction.set(0,1.40,0));
       direction.set(0,Math.sin(pitch),Math.cos(pitch)).applyAxisAngle(T.Object3D.DEFAULT_UP,yaw).normalize();
