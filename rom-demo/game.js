@@ -4,6 +4,7 @@ import {buildInterior} from './interior.js';
 import {createCombat} from './combat.js';
 import {createAudio} from './audio.js';
 import {createSettings} from './settings.js';
+import {createStory} from './story-ui.js';
 import {createSky} from './sky.js';
 import * as T from './three.module.js';
 import romPhoto from './dist/rom.jpg';
@@ -12,6 +13,7 @@ const $ = id => document.getElementById(id);
 try { boot(); } catch (error) { console.error(error); $('error').hidden = false; $('start').disabled = true; }
 
 function boot() {
+  const record=createStory(notice);
   const audio=createAudio();
   const settings=createSettings(document,audio);
   const scene = new T.Scene();
@@ -496,7 +498,7 @@ function boot() {
       climbing=null;airborne=true;verticalSpeed=0;
     }
   }
-  const combat=createCombat(T,scene,box,oval,groundAt,block,audio.play);
+  const combat=createCombat(T,scene,box,oval,groundAt,block,audio.play,()=>record('defeats'));
   const fists={name:'Fists',damage:18,range:2,aim:.42,cooldown:.48};
   let equipped=null, attackTime=0, swing=0;
   const held=new T.Group();
@@ -700,6 +702,7 @@ function boot() {
     yaw=Math.PI;
     verticalSpeed=0;airborne=false;
     interior.setLighting(floor.origin);
+    record('floors');
     notice('School · Floor '+(index+1));
   }
   function interact() {
@@ -755,6 +758,7 @@ function boot() {
     const pickup=nearestItem();
     if(!pickup || pickupMotion || emote || deathTime)return;
     if(!inventory.add(pickup.id)){notice('Inventory full');return;}
+    record('pickups');
     notice('Picked up '+items[pickup.id].name);
     const from=pickup.model.position.clone();
     player.rotation.y=Math.atan2(from.x-player.position.x,from.z-player.position.z);
@@ -882,6 +886,7 @@ function boot() {
   function jump() {
     if(climbing){toggleClimb();return;}
     if(airborne || emote || stamina<9)return;
+    record('jumps');
     airborne=true;verticalSpeed=6.4;stamina-=9;recovery=.45;
   }
   function updateVitals() {
@@ -912,6 +917,7 @@ function boot() {
   }
   function beginDeath() {
     if(deathTime)return;
+    record('deaths');
     deathTime=.001;emote=null;
     keys.clear();touchKeys.clear();dragging=false;
     rig.visible=true;
@@ -1084,6 +1090,9 @@ function boot() {
       if(!playerBlocked(x+movement.x*step,z))player.position.x+=movement.x*step;
       if(!playerBlocked(player.position.x,z+movement.z*step))player.position.z+=movement.z*step;
       const moving=player.position.x!==x||player.position.z!==z;
+      if(moving && !airborne && !climbing) {
+        record(running ? 'sprinted' : 'walked', Math.hypot(player.position.x-x, player.position.z-z));
+      }
       if(climbing)updateClimb(dt,f);
       const floor=Math.max(groundAt(player.position.x,player.position.z),roofAt(player.position.x,player.position.z,player.position.y));
       if(!climbing && !airborne && player.position.y-floor>.22){airborne=true;verticalSpeed=0;}

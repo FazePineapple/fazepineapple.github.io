@@ -1,6 +1,6 @@
 import {createBotAppearance} from './bot-appearance.js';
 
-export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=()=>{}) {
+export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=()=>{}, onDefeat=()=>{}) {
   const bots=[];
   const tracerGeometry=new T.BufferGeometry();
   tracerGeometry.setAttribute('position',new T.BufferAttribute(new Float32Array(6),3));
@@ -56,6 +56,7 @@ export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=(
     playSound('botHit');
     bot.bar.draw(bot.hp);
     if(bot.hp)return;
+    onDefeat();
     bot.model.visible=false;bot.respawn=15;bot.alert=0;bot.gas=0;
   }
   return {

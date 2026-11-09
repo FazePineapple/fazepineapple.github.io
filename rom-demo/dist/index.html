@@ -8,7 +8,7 @@
 </head>
 <body>
 <main id="world" aria-label="3D school campus"></main>
-<div class="grain"></div><div id="buildVersion">v13</div>
+<div class="grain"></div><div id="buildVersion">Dev build</div>
 <section id="menu" aria-labelledby="title">
   <header><span class="mark">R</span><span>NEMENČINĖ<br><small>CAMPUS STORIES</small></span><span class="version">DEMO / 01</span></header>
   <img class="rom" src="rom.jpg" alt="Full-body photo of Rom wearing a denim jacket">
@@ -18,6 +18,21 @@
     <p>Explore Nemenčinės Gedimino gimnazija as Rom, a student with the campus to himself.</p>
     <button id="start">Start game <b>↗</b></button>
     <button id="settingsButton">Settings</button>
+    <button id="journalButton">Quest journal</button>
+    <p id="storyStatus" role="status">Not connected · progress tracking off</p>
+    <dialog id="journal" style="max-width:min(36rem, 90vw);max-height:80vh">
+      <h2>Quest journal</h2>
+      <form id="storyAccount" hidden>
+        <p><label>Username <input name="username" autocomplete="username" required minlength="3" maxlength="32"></label></p>
+        <p><label>Password <input name="password" type="password" autocomplete="current-password" required minlength="10" maxlength="128"></label></p>
+        <button value="login">Sign in</button>
+        <button value="register">Create account</button>
+      </form>
+      <p id="storyMessage" role="status"></p>
+      <div id="journalContent"></div>
+      <button id="storySignOut" type="button" hidden>Sign out</button>
+      <form method="dialog"><button>Close</button></form>
+    </dialog>
     <p id="error" role="alert" hidden>This demo needs a browser with WebGL enabled.</p>
   </div>
   <footer><span>01 / GEDIMINO GIMNAZIJA</span><span>14 EŽERO G. · NEMENČINĖ</span></footer>
