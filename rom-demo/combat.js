@@ -51,7 +51,7 @@ export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=(
     const student=bots.length>=3;
     const appearance=createBotAppearance(T,model,box,oval);
     const profile=appearance.roll();
-    bots.push({model,name,student,appearance,profile,bar,legs,x,z,hp:100,phase:bots.length,alert:0,cooldown:0,respawn:0,gas:0,gasTick:0});
+    bots.push({model,name,student,appearance,profile,bar,legs,x,z,hp:100,phase:bots.length,alert:0,cooldown:0,coughTime:0,respawn:0,gas:0,gasTick:0});
   }
   const delta=new T.Vector3(), forward=new T.Vector3();
   function clearPath(position,target) {
@@ -62,9 +62,10 @@ export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=(
     }
     return true;
   }
-  function damageBot(bot,amount) {
+  function damageBot(bot,amount,sound='botHit') {
     bot.hp=Math.max(0,bot.hp-amount);
-    playSound(bot.hp?'botHit':'botDeath');
+    if(!bot.hp)playSound('botDeath');
+    else if(sound)playSound(sound);
     bot.bar.draw(bot.hp,bot.name);
     if(bot.hp)return;
     onDefeat();
@@ -76,6 +77,22 @@ export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=(
     },
     setLesson(active){lesson=active;},
     atDoor(x,z){return bots.some(bot=>bot.student && bot.hp && Math.hypot(bot.model.position.x-x,bot.model.position.z-z)<2.3);},
+    spray(position,heading,weapon) {
+      let hits=0;
+      for(const bot of bots) {
+        if(!bot.hp)continue;
+        delta.copy(bot.model.position);delta.y+=.9*bot.profile.scale;
+        if(!clearPath(position,delta))continue;
+        delta.sub(position);
+        const distance=delta.length();
+        if(distance>weapon.range || (distance>.01 && delta.dot(heading)<distance*weapon.aim))continue;
+        damageBot(bot,weapon.damage,bot.coughTime<=0?'cough':null);
+        if(bot.coughTime<=0)bot.coughTime=.72;
+        if(bot.hp)bot.alert=7;
+        hits++;
+      }
+      return hits;
+    },
     hitWithProp(from,to,damage) {
       delta.copy(to).sub(from);
       const length=delta.lengthSq();
@@ -123,6 +140,7 @@ export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=(
         const p=model.position;
         bot.alert=Math.max(0,bot.alert-dt);
         bot.cooldown=Math.max(0,bot.cooldown-dt);
+        bot.coughTime=Math.max(0,bot.coughTime-dt);
         bot.phase+=dt;
         delta.copy(player.position).sub(p);
         const distance=Math.hypot(delta.x,delta.z);

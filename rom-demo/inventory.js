@@ -6,7 +6,7 @@ export const items = {
   ruler:{name:'Liniuote',description:'Metal ruler',throwDamage:45,icon:'📏',stack:1,
     weapon:{name:'Liniuote',damage:27,range:2.3,aim:.5,cooldown:.35}},
   extinguisher:{name:'Fire extinguisher',icon:'🧯',stack:1,
-    weapon:{name:'Fire extinguisher',damage:14,ranged:true,foam:true,range:7,aim:.9,cooldown:.28}},
+    weapon:{name:'Fire extinguisher',damage:3,ranged:true,foam:true,range:6,aim:.9,cooldown:.24}},
   dagger: {name:'Sruguputu',description:'Japonijos mero durklas',icon:'🗡️',stack:1,
     weapon:{name:'Sruguputu',damage:100,range:2.7,aim:.42,cooldown:.55}},
   blaster: {name:'Training blaster',icon:'🔫',stack:1,

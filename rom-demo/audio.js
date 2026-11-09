@@ -9,7 +9,8 @@ export function createAudio() {
     botDeath:[['sawtooth',210,32,.48,.09],['triangle',99,35,.57,.11]],
     botHit:[['triangle',250,110,.15,.10]],
     botAttack:[['square',135,68,.19,.065]],
-    foam:[['triangle',360,160,.17,.085],['sawtooth',215,92,.13,.022]],
+    foam:[['triangle',151,94,.48,.055],['sawtooth',72,58,.42,.018]],
+    cough:[['sawtooth',180,87,.13,.085],['triangle',162,75,.16,.085,.18]],
     shot:[['sawtooth',170,45,.14,.11]],
   };
   function start() {

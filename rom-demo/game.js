@@ -556,6 +556,7 @@ function boot() {
     }
   }
   function primaryAction() {
+    if(items[heldId]?.weapon?.foam)return;
     if(items[heldId]?.effects)useItem();
     else if(items[heldId]?.throwDamage && !items[heldId].weapon)throwItem();
     else attack();
@@ -563,10 +564,59 @@ function boot() {
   function attack() {
     if(attackTime>0 || emote || deathTime || pickupMotion || climbing || drinkMotion)return;
     const weapon=items[heldId]?.weapon??fists;
+    if(weapon.foam)return;
     attackTime=weapon.cooldown;swing=.26;
-    if(weapon.ranged)audio.play(weapon.foam?'foam':'shot');
+    if(weapon.ranged)audio.play('shot');
     notice(weapon.name+' · '+combat.attack(player.position,yaw,weapon,pitch));
   }
+  let sprayPointer=null,sprayTime=0,spraySoundTime=0,puffDelay=0,nextPuff=0;
+  const sprayDirection=new T.Vector3(), sprayOrigin=new T.Vector3();
+  const foamShape=new T.SphereGeometry(.15,7,5);
+  const foamPuffs=Array.from({length:32},()=>{
+    const model=new T.Mesh(foamShape,new T.MeshBasicMaterial({
+      color:0xe4f5ff,transparent:true,depthWrite:false
+    }));
+    model.visible=false;scene.add(model);
+    return {model,velocity:new T.Vector3(),life:0};
+  });
+  function updateSpray(dt) {
+    const weapon=items[heldId]?.weapon;
+    const spraying=weapon?.foam && (sprayPointer!==null || keys.has('KeyX')) &&
+      !emote && !pickupMotion && !climbing && !drinkMotion && !deathTime;
+    sprayTime=Math.max(0,sprayTime-dt);
+    spraySoundTime=Math.max(0,spraySoundTime-dt);
+    puffDelay=Math.max(0,puffDelay-dt);
+    if(spraying) {
+      sprayDirection.set(0,-Math.sin(pitch),-Math.cos(pitch)).applyAxisAngle(T.Object3D.DEFAULT_UP,yaw);
+      sprayOrigin.copy(player.position);sprayOrigin.y+=1.36;
+      if(!sprayTime) {
+        sprayTime=weapon.cooldown;
+        if(combat.spray(sprayOrigin,sprayDirection,weapon))notice('Practice bot coughing');
+      }
+      if(!spraySoundTime){audio.play('foam');spraySoundTime=.45;}
+      if(!puffDelay) {
+        puffDelay=.035;
+        const puff=foamPuffs[nextPuff++%foamPuffs.length];
+        puff.model.position.copy(sprayOrigin).addScaledVector(sprayDirection,.35);
+        puff.velocity.copy(sprayDirection).multiplyScalar(8);
+        puff.velocity.x+=(Math.random()-.5)*2.4;
+        puff.velocity.y+=(Math.random()-.5)*1.7;
+        puff.velocity.z+=(Math.random()-.5)*2.4;
+        puff.life=.68;
+      }
+    }
+    for(const puff of foamPuffs) {
+      if(!puff.life)continue;
+      puff.life=Math.max(0,puff.life-dt);
+      const p=puff.model.position;
+      p.addScaledVector(puff.velocity,dt);
+      if(block(p.x,p.z)||p.y<groundAt(p.x,p.z))puff.life=0;
+      puff.model.visible=puff.life>0;
+      puff.model.material.opacity=puff.life*.47;
+      puff.model.scale.setScalar(1+(1-puff.life/.68)*3.6);
+    }
+  }
+  function stopSpray(){sprayPointer=null;}
   const inventory=createInventory();
   let selected=0, grabbed=null, packOpen=false;
   let health=100, stamina=100, exhausted=false, recovery=0;
@@ -650,7 +700,7 @@ function boot() {
     } else notice('Prrrt!');
   }
   function toggleEmotes(open) {
-    emoteOpen=open;keys.clear();touchKeys.clear();dragging=false;
+    stopSpray();emoteOpen=open;keys.clear();touchKeys.clear();dragging=false;
     $('emotes').hidden=!open;
     if(open)$('reticle').hidden=true;
     if(open && document.pointerLockElement===canvas)document.exitPointerLock();
@@ -952,7 +1002,7 @@ function boot() {
     if(slot && items[slot.id].description)$('itemDetails').textContent=items[slot.id].description;
   }
   function togglePack(open) {
-    packOpen=open;grabbed=null;keys.clear();touchKeys.clear();dragging=false;
+    stopSpray();packOpen=open;grabbed=null;keys.clear();touchKeys.clear();dragging=false;
     $('inventory').hidden=!open;
     if(open)$('reticle').hidden=true;
     if(open && document.pointerLockElement===canvas)document.exitPointerLock();
@@ -970,7 +1020,10 @@ function boot() {
   $('jetButton').onclick=toggleJetpack;
   $('pickButton').onclick=interact;
   $('useButton').onclick=()=>useItem();
-  $('attackButton').onclick=primaryAction;
+  const attackButton=$('attackButton');
+  attackButton.onclick=primaryAction;
+  attackButton.onpointerdown=e=>{if(e.button===0){sprayPointer=e.pointerId;attackButton.setPointerCapture(e.pointerId);}};
+  attackButton.onlostpointercapture=stopSpray;
   $('packUse').onclick=()=>useItem(grabbed ?? selected);
   $('throwButton').onclick=()=>throwItem();
   $('emoteButton').onclick=()=>{if(!packOpen)toggleEmotes(!emoteOpen);};
@@ -1036,6 +1089,8 @@ function boot() {
     $('deathScreen').hidden=false;$('reticle').hidden=true;
   }
   function reset() {
+    stopSpray();
+    for(const puff of foamPuffs){puff.life=0;puff.model.visible=false;}
     deathTime=0;climbing=null;jetpack=false;jetRig.visible=false;exhaust.visible=false;$('flight').hidden=true;$('deathScreen').hidden=true;
     if(pickupMotion){scene.remove(pickupMotion.model);pickupMotion=null;}
     drinkProp.clear();drinkMotion=null;landingTime=0;
@@ -1063,7 +1118,7 @@ function boot() {
   }
   window.addEventListener('resize',resize); resize();
   function setActive(value) {
-    active=value; keys.clear(); touchKeys.clear(); dragging=false;
+    stopSpray();active=value; keys.clear(); touchKeys.clear(); dragging=false;
     if(!value && packOpen)togglePack(false);
     if(!value && deathTime)reset();
     rig.visible=!value || !firstPerson;
@@ -1096,7 +1151,7 @@ function boot() {
     if(/^Digit[1-9]$/.test(key)){selected=Number(key.at(-1))-1;renderSlots();return;}
     if(['Space','KeyE','KeyQ','KeyF','KeyX'].includes(key)) {
       e.preventDefault();
-      if(!e.repeat) {if(key==='Space'){keys.add(key);if(!jetpack)jump();}else if(key==='KeyE')interact();else if(key==='KeyF')useItem();else if(key==='KeyX')primaryAction();else throwItem();}
+      if(!e.repeat) {if(key==='Space'){keys.add(key);if(!jetpack)jump();}else if(key==='KeyE')interact();else if(key==='KeyF')useItem();else if(key==='KeyX'){keys.add(key);primaryAction();}else throwItem();}
       return;
     }
     if(!controls.includes(key))return;
@@ -1104,15 +1159,18 @@ function boot() {
     if(key==='KeyR')reset();
   });
   window.addEventListener('keyup',e=>keys.delete(settings.key(e.code)));
-  window.addEventListener('blur',()=>{keys.clear();touchKeys.clear();dragging=false;});
+  window.addEventListener('blur',()=>{stopSpray();keys.clear();touchKeys.clear();dragging=false;});
   canvas.addEventListener('pointerdown',e=>{
     if(!active||packOpen||emoteOpen||deathTime)return;
-    if(e.pointerType==='mouse' && e.button===0)primaryAction();
+    if(e.pointerType==='mouse' && e.button===0){sprayPointer=e.pointerId;primaryAction();}
     dragging=true;lastX=e.clientX;lastY=e.clientY;
     canvas.setPointerCapture(e.pointerId);
     if(e.pointerType==='mouse') canvas.requestPointerLock?.()?.catch(()=>{});
   });
   canvas.addEventListener('lostpointercapture',()=>dragging=false);
+  for(const event of ['pointerup','pointercancel'])window.addEventListener(event,e=>{
+    if(e.pointerId===sprayPointer)stopSpray();
+  });
   canvas.addEventListener('pointerup',()=>dragging=false);
   document.addEventListener('pointerlockchange',()=>{
     if(active && !packOpen && !emoteOpen && document.pointerLockElement!==canvas) setActive(false);
@@ -1236,6 +1294,7 @@ function boot() {
         if(!health)beginDeath();
         else notice('Practice bot hit · −'+amount+' health');
       });
+      updateSpray(dt);
       updateEffects(dt,running && moving);
       updateVitals();
       if(moving && !climbing) {
