@@ -26,3 +26,12 @@
 @media(min-width:501px) and (max-width:850px) and (pointer:fine){#quickbar{bottom:72px}.map{bottom:168px}#hud .help{width:min(95vw,540px);line-height:1.65}}
 #equipped{display:table;margin:0 0 3px;background:#142119ee;color:#d6fa87;padding:3px 7px;border-radius:4px;font-size:11px;font-weight:800}
 #buildVersion{position:absolute;z-index:4;left:10px;bottom:4px;padding:2px 5px;background:#142119e8;color:#d6fa87;border-radius:3px;font:700 10px system-ui;pointer-events:none}
+#emoteButton,#soundButton{position:absolute;right:20px;padding:7px 10px}
+#emoteButton{top:105px}#soundButton{top:141px}
+#emotes{position:absolute;inset:0;display:grid;place-items:center;pointer-events:auto;background:#101a14a8;z-index:5}
+.emote-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:13px 0}
+#hud .emote-grid button{margin:0}
+#bladder::-webkit-meter-optimum-value{background:#edc36c}
+#gas::-webkit-meter-optimum-value{background:#adca76}
+@media(pointer:coarse){#actions{top:181px}#touch{bottom:144px}.map{bottom:210px}}
+@media(max-height:550px){#emoteButton{right:133px;top:67px}#soundButton{right:133px;top:105px}}

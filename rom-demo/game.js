@@ -1,6 +1,7 @@
 import {items, createInventory} from './inventory.js';
 import {buildInterior} from './interior.js';
 import {createCombat} from './combat.js';
+import {createAudio} from './audio.js';
 import * as T from './three.module.js';
 import romPhoto from './dist/rom.jpg';
 
@@ -8,6 +9,7 @@ const $ = id => document.getElementById(id);
 try { boot(); } catch (error) { console.error(error); $('error').hidden = false; $('start').disabled = true; }
 
 function boot() {
+  const audio=createAudio();
   const scene = new T.Scene();
   scene.background = new T.Color(0xa9c7d5);
   scene.fog = new T.FogExp2(0xa9c7d5, .009);
@@ -392,9 +394,10 @@ function boot() {
     renderSlots();
   }
   function attack() {
-    if(attackTime>0)return;
+    if(attackTime>0 || emote)return;
     const weapon=equipped?items[equipped].weapon:fists;
     attackTime=weapon.cooldown;swing=.26;
+    if(weapon.ranged)audio.play('shot');
     notice(weapon.name+' · '+combat.attack(player.position,yaw,weapon));
   }
   const inventory=createInventory();
@@ -403,9 +406,23 @@ function boot() {
   let airborne=false, verticalSpeed=0, pickupMessage='', messageTime=0;
   const pickups=[];
   const effects={dizzy:0,gas:0,bladder:0};
-  let gasDelay=0, bladderDelay=0, puffTime=0;
-  const puff=new T.Mesh(new T.SphereGeometry(.21,12,8),
-    new T.MeshBasicMaterial({color:0xafc575,transparent:true,depthWrite:false}));
+  let bladder=0, gas=0, pressureTime=0, gasDelay=0, puffTime=0;
+  let emoteOpen=false, emote=null, emoteTime=0;
+  const emoteDuration={wave:1.65,flip:.85,fall:1.55,laugh:1.55,fart:.72,pee:1.55};
+  const rig=new T.Group();
+  for(const part of [...player.children])rig.add(part);
+  player.add(rig);
+  const drops=Array.from({length:12},()=>{
+    const drop=new T.Mesh(new T.SphereGeometry(.024,5,4),new T.MeshBasicMaterial({color:0xf5cd69}));
+    drop.visible=false;scene.add(drop);return drop;
+  });
+  const puff=new T.Group();
+  const cloudMaterial=new T.MeshBasicMaterial({color:0xafc575,transparent:true,depthWrite:false});
+  const cloudShape=new T.SphereGeometry(.18,12,8);
+  for(const [x,y,z,size] of [[0,0,0,1],[-.15,.035,.055,.74],[.16,.045,-.04,.81],[.04,.11,.12,.7],[-.03,-.05,-.13,.68]]) {
+    const cloud=new T.Mesh(cloudShape,cloudMaterial);
+    cloud.position.set(x,y,z);cloud.scale.setScalar(size);puff.add(cloud);
+  }
   puff.visible=false;scene.add(puff);
   function useItem(index=selected) {
     const slot=inventory.slots[index];
@@ -418,30 +435,104 @@ function boot() {
         if(stamina>=22)exhausted=false;
       } else effects[effect.type]=effect.seconds;
     }
-    if(id==='juice')bladderDelay=4;
+    if(id==='juice')bladder=Math.min(100,bladder+38);
+    if(id==='beer')bladder=Math.min(100,bladder+26);
+    if(id==='bun')gas=Math.min(100,gas+54);
+    if(id!=='bun')audio.play('burp');
     notice({juice:'Juice finished · Find a restroom when the urge hits',bun:'Sausage bun eaten · +40 stamina',beer:'Beer finished · Feeling dizzy'}[id]);
     grabbed=null;renderSlots();updateVitals();
+  }
+  function emitGas() {
+    gas=Math.max(0,gas-32);
+    gasDelay=2.2;puffTime=1;
+    puff.position.copy(player.position);
+    puff.position.y+=.88;
+    puff.position.x-=Math.sin(player.rotation.y)*.41;
+    puff.position.z-=Math.cos(player.rotation.y)*.41;
+    audio.play('fart');
+    if(combat.nearbyReaction(puff.position,'gas')) {
+      audio.play('scream');
+      notice('Prrrt! Nearby practice bots are choking');
+    } else notice('Prrrt!');
+  }
+  function toggleEmotes(open) {
+    emoteOpen=open;keys.clear();touchKeys.clear();dragging=false;
+    $('emotes').hidden=!open;
+    if(open && document.pointerLockElement===canvas)document.exitPointerLock();
+    if(open)$('emotes').querySelector('button').focus();
+  }
+  function startEmote(name,atRestroom=false) {
+    if(emote || airborne)return;
+    if(name==='pee' && !bladder){notice('Rom does not need the WC');return;}
+    emote=name;emoteTime=0;swing=0;
+    if(name==='fart')emitGas();
+    if(name==='laugh')audio.play('laugh');
+    if(name==='pee') {
+      bladder=0;pressureTime=0;effects.bladder=0;
+      if(!atRestroom && combat.nearbyReaction(player.position,'pee')) {
+        audio.play('scream');notice('A practice bot spotted Rom!');
+      } else notice(atRestroom?'Restroom used':'Bladder emptied');
+    }
+  }
+  function updateEmote(dt) {
+    rig.rotation.set(0,0,0);rig.position.y=0;
+    for(const drop of drops)drop.visible=false;
+    if(!emote)return;
+    emoteTime+=dt;
+    const phase=Math.min(1,emoteTime/emoteDuration[emote]);
+    const envelope=Math.sin(Math.PI*phase);
+    const right=limbs[1].arm;
+    if(emote==='wave') {
+      right.rotation.x=-1.8*envelope;
+      right.rotation.z=(.85+Math.sin(emoteTime*19)*.35)*envelope;
+    } else if(emote==='flip') {
+      rig.rotation.x=phase*Math.PI*2;
+      rig.position.y=envelope*1.18+(1-Math.cos(rig.rotation.x))*.91;
+      for(const {arm,leg} of limbs){leg.rotation.x=-envelope*.94;arm.rotation.x=-envelope*1.2;}
+    } else if(emote==='fall') {
+      rig.rotation.x=-Math.min(1,phase*4,(1-phase)*4)*1.47;
+    } else if(emote==='laugh') {
+      rig.rotation.x=Math.sin(emoteTime*19)*.11*envelope;
+      for(const {arm} of limbs)arm.rotation.x=-.7*envelope;
+    } else if(emote==='fart') {
+      rig.rotation.x=.25*envelope;
+      rig.position.y=-.10*envelope;
+      for(const {leg} of limbs)leg.rotation.x=-.24*envelope;
+    } else if(emote==='pee') {
+      for(const {arm} of limbs)arm.rotation.x=-.44*envelope;
+      const angle=player.rotation.y;
+      drops.forEach((drop,i)=>{
+        const flight=(emoteTime*2.5+i/drops.length)%1;
+        const distance=.21+flight*.91;
+        const x=player.position.x+Math.sin(angle)*distance;
+        const z=player.position.z+Math.cos(angle)*distance;
+        drop.visible=phase>.09 && phase<.87 && !block(x,z);
+        drop.position.set(x,player.position.y+.93+.13*flight-flight*flight*1.05,z);
+      });
+    }
+    if(phase===1)emote=null;
   }
   function updateEffects(dt,sprinting) {
     for(const effect of Object.keys(effects))effects[effect]=Math.max(0,effects[effect]-dt);
     gasDelay=Math.max(0,gasDelay-dt);
-    if(effects.gas && sprinting && !gasDelay) {
-      gasDelay=2.2;puffTime=.65;
-      puff.position.copy(player.position);
-      puff.position.y+=.89;
-      puff.position.x-=Math.sin(player.rotation.y)*.4;
-      puff.position.z-=Math.cos(player.rotation.y)*.4;
-      notice('Prrrt!');
+    if(effects.gas)gas=Math.min(100,gas+dt*4);
+    if(!emote && gas>=32 && sprinting && !gasDelay) {
+      startEmote('fart');
     }
     puffTime=Math.max(0,puffTime-dt);
     puff.visible=puffTime>0;
-    puff.material.opacity=puffTime*.65;
-    puff.scale.setScalar(1+(.65-puffTime)*1.3);
-    if(effects.bladder) {
-      bladderDelay-=dt;
-      if(bladderDelay<=0){notice('Rom needs to pee · Find the WC');bladderDelay=8;}
+    cloudMaterial.opacity=puffTime*.48;
+    puff.scale.setScalar(1+(1-puffTime)*2.2);
+    if(puffTime)puff.position.y+=dt*.25;
+    if(effects.bladder)bladder=Math.min(100,bladder+dt*.86);
+    pressureTime=bladder>=100?pressureTime+dt:0;
+    if(pressureTime>=2) {
+      pressureTime-=2;
+      health=Math.max(0,health-4);
+      if(!health){reset();notice('Back at the courtyard');}
+      else notice('Bladder pressure · −4 health');
     }
-    const label=[effects.dizzy&&'Dizzy',effects.gas&&'Gassy',effects.bladder&&(bladderDelay>8?'Restroom relief':'Needs the WC')].filter(Boolean).join(' · ');
+    const label=[effects.dizzy&&'Dizzy',gas>=32&&'Gassy',bladder>=70&&'Needs the WC'].filter(Boolean).join(' · ');
     if($('effects').textContent!==label)$('effects').textContent=label;
     $('effects').hidden=!label;
   }
@@ -450,13 +541,12 @@ function boot() {
     const near=point=>Math.hypot(x-point.x,z-point.z)<2.35;
     if(!inside(x) && near(outdoorDoor))return {label:'Enter school',run:()=>changeArea(true)};
     if(inside(x) && near(interior.exit))return {label:'Exit to courtyard',run:()=>changeArea(false)};
-    if(effects.bladder && inside(x) && near(interior.restroom))return {
-      label:'Use restroom',
-      run:()=>{bladderDelay=9;notice('Much better. The juice will catch up again soon.');}
-    };
+    if(bladder && inside(x) && near(interior.restroom))return {label:'Use restroom',run:()=>startEmote('pee',true)};
     return null;
   }
   function changeArea(enter) {
+    if(emote)return;
+    audio.ambience(true,enter);
     player.position.set(enter?interior.origin:outdoorDoor.x,.03,enter?9:3.2);
     yaw=enter?0:Math.PI;pitch=.22;
     player.rotation.y=enter?Math.PI:0;
@@ -625,14 +715,24 @@ function boot() {
   $('attackButton').onclick=attack;
   $('packUse').onclick=()=>useItem(grabbed ?? selected);
   $('throwButton').onclick=()=>throwItem();
+  $('emoteButton').onclick=()=>{if(!packOpen)toggleEmotes(!emoteOpen);};
+  $('soundButton').onclick=()=>{$('soundButton').textContent=audio.toggle()?'Sound on':'Sound off';};
+  for(const button of $('emotes').querySelectorAll('button'))button.onclick=()=>{
+    toggleEmotes(false);
+    if(button.dataset.emote)startEmote(button.dataset.emote,nearbyAction()?.label==='Use restroom');
+  };
   renderSlots();
   function jump() {
-    if(airborne || stamina<9)return;
+    if(airborne || emote || stamina<9)return;
     airborne=true;verticalSpeed=6.4;stamina-=9;recovery=.45;
   }
   function updateVitals() {
     $('health').value=health;
     $('stamina').value=stamina;
+    $('bladder').value=bladder;
+    $('gas').value=gas;
+    $('bladderValue').textContent=Math.ceil(bladder);
+    $('gasValue').textContent=Math.ceil(gas);
     $('hpValue').textContent=Math.ceil(health);
     $('spValue').textContent=Math.ceil(stamina);
   }
@@ -643,6 +743,10 @@ function boot() {
     airborne=false;verticalSpeed=0;health=100;stamina=100;recovery=0;exhausted=false;
     for(const effect of Object.keys(effects))effects[effect]=0;
     puffTime=0;puff.visible=false;
+    bladder=0;gas=0;pressureTime=0;gasDelay=0;emote=null;
+    for(const {arm} of limbs)arm.rotation.z=0;
+    updateEmote(0);
+    if(active)audio.ambience(true,false);
     updateVitals();
   }
   reset();
@@ -656,6 +760,9 @@ function boot() {
   function setActive(value) {
     active=value; keys.clear(); touchKeys.clear(); dragging=false;
     if(!value && packOpen)togglePack(false);
+    if(!value && emoteOpen)toggleEmotes(false);
+    if(value)audio.start();
+    audio.ambience(value,inside(player.position.x));
     $('menu').hidden=value; $('hud').hidden=!value;
     $('start').textContent=value?'Resume game ↗': 'Resume game ↗';
     if(!value) {
@@ -668,7 +775,9 @@ function boot() {
   const controls=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight','KeyR'];
   window.addEventListener('keydown',e=>{
     if(!active)return;
-    if(e.code==='Escape') {if(packOpen)togglePack(false);else setActive(false);return;}
+    if(e.code==='Escape') {if(emoteOpen)toggleEmotes(false);else if(packOpen)togglePack(false);else setActive(false);return;}
+    if(e.code==='KeyB') {e.preventDefault();if(!e.repeat&&!packOpen)toggleEmotes(!emoteOpen);return;}
+    if(emoteOpen)return;
     if(e.code==='KeyI') {e.preventDefault();if(!e.repeat)togglePack(!packOpen);return;}
     if(packOpen)return;
     if(/^Digit[1-9]$/.test(e.code)){selected=Number(e.code.at(-1))-1;renderSlots();return;}
@@ -684,7 +793,7 @@ function boot() {
   window.addEventListener('keyup',e=>keys.delete(e.code));
   window.addEventListener('blur',()=>{keys.clear();touchKeys.clear();dragging=false;});
   canvas.addEventListener('pointerdown',e=>{
-    if(!active||packOpen)return;
+    if(!active||packOpen||emoteOpen)return;
     if(e.pointerType==='mouse' && e.button===0)attack();
     dragging=true;lastX=e.clientX;lastY=e.clientY;
     canvas.setPointerCapture(e.pointerId);
@@ -693,10 +802,10 @@ function boot() {
   canvas.addEventListener('lostpointercapture',()=>dragging=false);
   canvas.addEventListener('pointerup',()=>dragging=false);
   document.addEventListener('pointerlockchange',()=>{
-    if(active && !packOpen && document.pointerLockElement!==canvas) setActive(false);
+    if(active && !packOpen && !emoteOpen && document.pointerLockElement!==canvas) setActive(false);
   });
   document.addEventListener('pointermove',e=>{
-    if(!active||packOpen)return;
+    if(!active||packOpen||emoteOpen)return;
     const locked=document.pointerLockElement===canvas;
     if(!locked&&!dragging)return;
     yaw-=(locked?e.movementX:e.clientX-lastX)*.004;
@@ -740,11 +849,12 @@ function boot() {
   let last=performance.now();
   renderer.setAnimationLoop(now=>{
     const dt=Math.min((now-last)/1000,.045); last=now;
-    if(active && !packOpen) {
+    if(active && !packOpen && !emoteOpen) {
       const f=Number(down('KeyW','ArrowUp'))-Number(down('KeyS','ArrowDown'));
       const s=Number(down('KeyD','ArrowRight'))-Number(down('KeyA','ArrowLeft'));
-      const running=(f||s) && !exhausted && !airborne && down('ShiftLeft','ShiftRight');
-      movement.set(s,0,-f).normalize().applyAxisAngle(T.Object3D.DEFAULT_UP,yaw);
+      const running=(!emote || emote==='fart') && (f||s) && !exhausted && !airborne && down('ShiftLeft','ShiftRight');
+      const posing=emote && emote!=='fart';
+      movement.set(posing?0:s,0,posing?0:-f).normalize().applyAxisAngle(T.Object3D.DEFAULT_UP,yaw);
       const {x,z}=player.position;
       const step=(running?7.6:4.05)*dt;
       if(!block(x+movement.x*step,z))player.position.x+=movement.x*step;
@@ -786,9 +896,11 @@ function boot() {
       for(const {leg,arm,side} of limbs){
         leg.rotation.x=T.MathUtils.lerp(leg.rotation.x,airborne?side*.32:moving?Math.sin(stride)*side*(running?.9:.58):0,.24);
         arm.rotation.x=-leg.rotation.x*.76;
+        arm.rotation.z=0;
       }
       if(swing)limbs[1].arm.rotation.x=-Math.sin(swing/.26*Math.PI)*1.8;
       torso.position.y=moving?Math.abs(Math.sin(stride))*.045:0;
+      updateEmote(dt);
       target.copy(player.position).add(direction.set(0,1.40,0));
       direction.set(0,Math.sin(pitch),Math.cos(pitch)).applyAxisAngle(T.Object3D.DEFAULT_UP,yaw).normalize();
       cameraRay.set(target,direction);

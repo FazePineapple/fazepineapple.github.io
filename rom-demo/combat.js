@@ -36,10 +36,35 @@ export function createCombat(T, scene, box, oval, groundAt, blocked) {
       return pivot;
     });
     const bar=healthBar();bar.draw(100);model.add(bar.sprite);
-    bots.push({model,bar,legs,x,z,hp:100,phase:bots.length,alert:0,cooldown:0,respawn:0});
+    bots.push({model,bar,legs,x,z,hp:100,phase:bots.length,alert:0,cooldown:0,respawn:0,gas:0,gasTick:0});
   }
   const delta=new T.Vector3(), forward=new T.Vector3();
+  function clearPath(position,target) {
+    const dx=target.x-position.x,dz=target.z-position.z;
+    const distance=Math.hypot(dx,dz);
+    for(let step=.3;step<distance-.3;step+=.3) {
+      if(blocked(position.x+dx*step/distance,position.z+dz*step/distance))return false;
+    }
+    return true;
+  }
+  function damageBot(bot,amount) {
+    bot.hp=Math.max(0,bot.hp-amount);
+    bot.bar.draw(bot.hp);
+    if(bot.hp)return;
+    bot.model.visible=false;bot.respawn=15;bot.alert=0;bot.gas=0;
+  }
   return {
+    nearbyReaction(position,type) {
+      let count=0;
+      const range=type==='gas'?3:8;
+      for(const bot of bots) {
+        if(!bot.hp || bot.model.position.distanceTo(position)>range || !clearPath(position,bot.model.position))continue;
+        if(type==='gas'){bot.gas=2.4;bot.gasTick=0;}
+        else bot.alert=10;
+        count++;
+      }
+      return count;
+    },
     update(dt,player,damage) {
       tracerTime=Math.max(0,tracerTime-dt);
       tracer.visible=tracerTime>0;
@@ -51,6 +76,11 @@ export function createCombat(T, scene, box, oval, groundAt, blocked) {
           if(bot.respawn>0)continue;
           model.position.set(bot.x,groundAt(bot.x,bot.z),bot.z);
           model.visible=true;bot.hp=100;bot.bar.draw(100);
+        }
+        if(bot.gas>0) {
+          bot.gas-=dt;bot.gasTick-=dt;
+          if(bot.gasTick<=0){damageBot(bot,3);bot.gasTick=.6;}
+          if(!bot.hp)continue;
         }
         const p=model.position;
         bot.alert=Math.max(0,bot.alert-dt);
@@ -86,11 +116,7 @@ export function createCombat(T, scene, box, oval, groundAt, blocked) {
         if(distance>closest || Math.abs(delta.y)>1.3)continue;
         delta.y=0;
         if(distance>.01 && delta.normalize().dot(forward)<weapon.aim)continue;
-        let clear=true;
-        for(let step=.3;step<distance-.3;step+=.3) {
-          if(blocked(position.x+delta.x*step,position.z+delta.z*step)){clear=false;break;}
-        }
-        if(clear){closest=distance;target=bot;}
+        if(clearPath(position,bot.model.position)){closest=distance;target=bot;}
       }
       if(weapon.ranged) {
         const end=target?delta.copy(target.model.position):delta.copy(position).addScaledVector(forward,weapon.range);
@@ -106,10 +132,8 @@ export function createCombat(T, scene, box, oval, groundAt, blocked) {
         tracerTime=.12;tracer.visible=true;tracer.material.opacity=1;
       }
       if(!target)return 'Miss';
-      target.hp=Math.max(0,target.hp-weapon.damage);
-      target.bar.draw(target.hp);
+      damageBot(target,weapon.damage);
       if(target.hp){target.alert=7;return 'Practice bot · '+target.hp+' HP';}
-      target.model.visible=false;target.respawn=15;target.alert=0;
       return 'Practice bot defeated';
     }
   };

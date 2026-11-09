@@ -8,7 +8,7 @@
 </head>
 <body>
 <main id="world" aria-label="3D school campus"></main>
-<div class="grain"></div><div id="buildVersion">v10</div>
+<div class="grain"></div><div id="buildVersion">v11</div>
 <section id="menu" aria-labelledby="title">
   <header><span class="mark">R</span><span>NEMENČINĖ<br><small>CAMPUS STORIES</small></span><span class="version">DEMO / 01</span></header>
   <img class="rom" src="rom.jpg" alt="Full-body photo of Rom wearing a denim jacket">
@@ -26,16 +26,31 @@
   <button id="menuButton">Esc &nbsp; Menu</button>
   <div class="map"><span>CAMPUS MAP <b>N ↑</b></span><canvas id="radar" width="158" height="128" aria-label="Campus map"></canvas></div>
     <button id="packButton">I &nbsp; Inventory</button>
-  <div id="effects" hidden></div><div id="prompt" role="status" hidden></div>
+  <button id="emoteButton">B &nbsp; Emotes</button><button id="soundButton">Sound on</button><div id="effects" hidden></div><div id="prompt" role="status" hidden></div>
   <div id="quickbar">
     <div class="vitals">
       <label>♥ Health <span id="hpValue">100</span><meter id="health" min="0" max="100" value="100"></meter></label>
       <label>ϟ Stamina <span id="spValue">100</span><meter id="stamina" min="0" max="100" value="100"></meter></label>
     </div>
+        <div class="vitals secondary-vitals">
+      <label>Bladder <span id="bladderValue">0</span><meter id="bladder" min="0" max="100" value="0"></meter></label>
+      <label>Gas <span id="gasValue">0</span><meter id="gas" min="0" max="100" value="0"></meter></label>
+    </div>
     <div id="equipped" aria-label="Equipped weapon"></div><div id="hotbar" class="slots" aria-label="Hotbar"></div>
   </div>
-  <div class="help"><kbd>WASD</kbd> Walk <kbd>Shift</kbd> Run <kbd>Space</kbd> Jump <kbd>E</kbd> Interact <kbd>F</kbd> Use / equip <kbd>LMB / X</kbd> Attack <kbd>Q</kbd> Throw <kbd>I</kbd> Inventory <kbd>Click + mouse</kbd> Look</div>
+  <div class="help"><kbd>WASD</kbd> Walk <kbd>Shift</kbd> Run <kbd>Space</kbd> Jump <kbd>E</kbd> Interact <kbd>F</kbd> Use / equip <kbd>LMB / X</kbd> Attack <kbd>Q</kbd> Throw <kbd>I</kbd> Inventory <kbd>B</kbd> Emotes <kbd>Click + mouse</kbd> Look</div>
   <div id="actions"><button id="jumpButton">Jump</button><button id="pickButton">Interact</button><button id="useButton">Use / equip</button><button id="attackButton">Attack</button><button id="throwButton">Throw</button></div>
+  <section id="emotes" aria-label="Emotes" hidden>
+    <div class="inventory-panel">
+      <h2>Emotes</h2>
+      <div class="emote-grid">
+        <button data-emote="wave">Wave</button><button data-emote="flip">Somersault</button>
+        <button data-emote="fall">Fall over</button><button data-emote="laugh">Laugh</button>
+        <button data-emote="fart">Fart</button><button data-emote="pee">Pee</button>
+      </div>
+      <button>Back to game</button>
+    </div>
+  </section>
   <section id="inventory" aria-label="Inventory" hidden>
     <div class="inventory-panel">
       <h2>Inventory</h2>
