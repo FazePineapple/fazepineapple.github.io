@@ -1,10 +1,12 @@
 export function createAudio() {
-  let context, output, ambient, enabled=true;
+  let context, output, ambient, enabled=true, masterVolume=1;
   const voices={
     fart:[['sawtooth',96,37,.38,.13],['triangle',121,51,.23,.09]],
     burp:[['sawtooth',145,61,.26,.12]],
     laugh:[['triangle',330,270,.13,.09],['triangle',360,280,.13,.09,.15],['triangle',390,270,.18,.09,.30]],
     scream:[['triangle',520,290,.31,.11],['sawtooth',650,400,.21,.035]],
+    botHit:[['triangle',250,110,.15,.10]],
+    botAttack:[['square',135,68,.19,.065]],
     shot:[['sawtooth',170,45,.14,.11]],
   };
   function start() {
@@ -23,7 +25,7 @@ export function createAudio() {
       source.buffer=wind;source.loop=true;source.connect(ambient);source.start();
     }
     context?.resume().catch(()=>{});
-    if(output)output.gain.value=enabled?1:0;
+    if(output)output.gain.value=enabled?masterVolume:0;
   }
   return {
     start,
@@ -31,10 +33,13 @@ export function createAudio() {
       if(!context)return;
       ambient.gain.setTargetAtTime(active?(indoors?.04:.19):0,context.currentTime,.16);
     },
-    toggle() {
-      enabled=!enabled;
-      start();
-      return enabled;
+    setVolume(value) {
+      masterVolume=value;
+      if(output)output.gain.value=enabled?masterVolume:0;
+    },
+    setMuted(muted) {
+      enabled=!muted;
+      if(output)output.gain.value=enabled?masterVolume:0;
     },
     play(name) {
       if(!context||!enabled)return;

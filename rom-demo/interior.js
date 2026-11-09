@@ -1,6 +1,7 @@
 export function buildInterior(T, scene, box, surface, texture) {
   const origin=300;
   const walls=[];
+  const lights=[];
   const tile=surface('#b8a18b',['#b09c85','#baa58e','#c0ac94'],5,true);
   const wood=surface('#b88755',['#ad7d4e','#ba8d5b','#bf935d'],6,true);
   const wall=(x,z,w,d)=>{
@@ -18,7 +19,7 @@ export function buildInterior(T, scene, box, surface, texture) {
   box(origin+9.5,.01,-4.3,8.7,.02,19,wood);
   for(const [x,z] of [[0,8],[0,0],[0,-9],[-9,-7],[9,-5],[9,9],[-9,7]]) {
     const light=new T.PointLight(0xffedcc,30,12);
-    light.position.set(origin+x,3.27,z);scene.add(light);
+    light.position.set(origin+x,3.27,z);light.visible=false;scene.add(light);lights.push(light);
     box(origin+x,3.49,z,1.75,.08,.39,new T.MeshBasicMaterial({color:0xfff4da}));
   }
   function sign(label,x,y,z,w,h,turn=0) {
@@ -58,5 +59,121 @@ export function buildInterior(T, scene, box, surface, texture) {
   }
   box(origin+9,.47,13.15,.55,.92,.72,0xe8ece5);
   box(origin+8.95,.47,12.68,.61,.23,.54,0xe8ece5);
-  return {origin,walls,exit:{x:origin,z:12.5},restroom:{x:origin+9,z:12}};
+  const spacing=44;
+  const floors=[{origin,walls,stairs:[],lights}];
+  const stairWidth=2.52;
+  const stairStart=-7.3;
+  const stairEnd=-13.8;
+  const tread=.52;
+  const rise=.13;
+  const stepCount=8;
+  const stairMaterial=surface('#a38d77',['#a28c75','#b29b82','#9c8976'],3);
+  const upperMaterial=new T.MeshBasicMaterial({color:0xffedc8});
+
+  function plaque(base,label,x,y,z,width,rotation=0) {
+    const map=texture(256,c=>{
+      c.fillStyle='#304c43';c.fillRect(0,0,256,256);
+      c.fillStyle='#fff2ce';c.textAlign='center';c.font='bold 32px sans-serif';
+      c.fillText(label,128,143,235);
+    });
+    const panel=new T.Mesh(new T.PlaneGeometry(width,.52),new T.MeshBasicMaterial({map}));
+    panel.position.set(base+x,y,z);panel.rotation.y=rotation;scene.add(panel);
+  }
+  function addStairs(floor,direction) {
+    const x=direction>0?-2.45:2.45;
+    const base=floor.origin;
+    floor.stairs.push({x:base+x,z:-12.8,direction});
+    for(let i=0;i<stepCount;i++) {
+      const height=direction>0?(i+1)*rise:-i*rise;
+      box(base+x,height-.085,stairStart-(i+.5)*tread,stairWidth,.17,tread,stairMaterial);
+    }
+    const landingStart=stairStart-stepCount*tread;
+    box(base+x,direction>0?stepCount*rise-.1:-(stepCount-1)*rise-.1,
+      (landingStart+stairEnd)/2,stairWidth,.2,landingStart-stairEnd,stairMaterial);
+    for(const side of [-1,1]) {
+      const railX=base+x+side*stairWidth/2;
+      for(let i=0;i<=stepCount;i+=2) {
+        const height=direction*rise*i;
+        box(railX,.48+height,stairStart-i*tread,.065,.96,.065,0x4c5a54);
+      }
+      const rail=box(railX,.95+direction*rise*stepCount/2,stairStart-stepCount*tread/2,
+        .065,.065,Math.hypot(stepCount*tread,stepCount*rise),0x596d61);
+      rail.rotation.x=direction*Math.atan2(rise,tread);
+      box(railX,.94+direction*rise*stepCount,(landingStart+stairEnd)/2,
+        .065,.065,landingStart-stairEnd,0x596d61);
+      floor.walls.push({x:railX,z:(stairStart+stairEnd)/2,w:.07,d:stairStart-stairEnd,top:1.65,bottom:-1.15});
+    }
+    plaque(base,direction>0?'AUKŠTYN ↑':'ŽEMYN ↓',x,direction>0?3.05:1.65,-13.81,2.2);
+  }
+
+  addStairs(floors[0],1);
+  for(let index=1;index<3;index++) {
+    const base=origin+index*spacing;
+    const floor={origin:base,walls:[],stairs:[],lights:[]};
+    floors.push(floor);
+    const partition=(x,z,w,d)=>{
+      floor.walls.push({x:base+x,z,w,d});
+      box(base+x,1.8,z,w,3.6,d,index===1?0xe4d9b3:0xd8e0d4).castShadow=false;
+      box(base+x,.38,z,w+.025,.76,d+.025,index===1?0x9d8a71:0x819284).castShadow=false;
+    };
+    const left=2.45-stairWidth/2,right=2.45+stairWidth/2;
+    const flightDepth=stairStart+14;
+    box(base,-.12,(stairStart+14)/2,28,.24,14-stairStart,tile);
+    box(base+(-14+left)/2,-.12,(stairStart-14)/2,left+14,.24,flightDepth,tile);
+    box(base+(right+14)/2,-.12,(stairStart-14)/2,14-right,.24,flightDepth,tile);
+    box(base,3.68,0,28,.15,28,0xe9e4d4).castShadow=false;
+    partition(0,-14,28,.25);partition(0,14,28,.25);
+    partition(-14,0,.25,28);partition(14,0,.25,28);
+    for(const x of [-5,5]){
+      partition(x,-9,.2,10);
+      partition(x,2,.2,7);
+      partition(x,11,.2,6);
+    }
+    box(base+2.45,-.59,-13.94,stairWidth,1.18,.25,index===1?0x9d8a71:0x819284);
+    addStairs(floor,-1);
+    if(index===1)addStairs(floor,1);
+    plaque(base,index===1?'2 AUKŠTAS':'3 AUKŠTAS',0,2.62,13.84,3.1,Math.PI);
+    plaque(base,index===1?'BIBLIOTEKA':'DAILĖS KLASĖ',-4.86,2.6,-2.7,2.2,Math.PI/2);
+    plaque(base,index===1?'GAMTOS MOKSLAI':'SKAITYKLA',4.86,2.6,-2.7,2.2,-Math.PI/2);
+    for(const [x,z] of [[0,8],[0,0],[0,-8],[-9,-5],[9,-5],[-9,8],[9,8]]) {
+      const light=new T.PointLight(0xffedcc,27,11);
+      light.position.set(base+x,3.27,z);light.visible=false;scene.add(light);floor.lights.push(light);
+      box(base+x,3.49,z,1.75,.08,.39,upperMaterial).castShadow=false;
+    }
+    for(const side of [-1,1]) {
+      for(const z of [-10,-5,0,5,10]) {
+        const x=base+side*13.81;
+        box(x,2.15,z,.075,1.32,2.65,0xb7c1b8);
+        box(x-side*.048,2.15,z,.022,1.12,2.42,0x739aa7);
+        box(x-side*.072,2.15,z,.035,1.24,.07,0xe9e6d4);
+      }
+      for(const z of [-8,-3,3,9]) {
+        const x=base+side*9;
+        box(x,.78,z,2.15,.09,.92,index===1&&side===1?0x596f69:0xb38557);
+        for(const end of [-.8,.8])box(x+end,.37,z,.075,.75,.7,0x555e56);
+      }
+    }
+    if(index===1)for(const z of [-10.5,-7.8,7.8,10.5]) {
+      box(base-12.4,1.2,z,.54,2.4,1.65,0x8e6c48);
+      for(let i=0;i<4;i++)for(let j=0;j<6;j++)box(base-12.08,.35+i*.49,z-.62+j*.22,
+        .1,.31+(j%3)*.035,.16,[0x9a5148,0x4e7777,0xc19962,0x526b4c][(i+j)%4]);
+    }
+    if(index===2)for(let i=0;i<6;i++) {
+      box(base-9.2+i*.94,1.95,-13.82,.69,.73,.055,0x806249);
+      box(base-9.2+i*.94,1.95,-13.78,.56,.6,.026,[0x9ab4aa,0xdda276,0xb8a276][i%3]);
+    }
+  }
+  const floorAt=x=>floors[Math.max(0,Math.min(floors.length-1,Math.round((x-origin)/spacing)))];
+  function stairHeight(x,z) {
+    if(z>stairStart || z<stairEnd)return .03;
+    const stair=floorAt(x).stairs.find(stair=>Math.abs(x-stair.x)<stairWidth/2);
+    if(!stair)return .03;
+    const step=Math.min(stepCount-1,Math.floor((stairStart-z)/tread));
+    return .03+(stair.direction>0?step+1:-step)*rise;
+  }
+  function setLighting(x) {
+    const active=x>200?floorAt(x):null;
+    for(const floor of floors)for(const light of floor.lights)light.visible=floor===active;
+  }
+  return {origin,walls,floors,floorAt,stairHeight,setLighting,exit:{x:origin,z:12.5},restroom:{x:origin+9,z:12}};
 }

@@ -1,4 +1,6 @@
-export function createCombat(T, scene, box, oval, groundAt, blocked) {
+import {createBotAppearance} from './bot-appearance.js';
+
+export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=()=>{}) {
   const bots=[];
   const tracerGeometry=new T.BufferGeometry();
   tracerGeometry.setAttribute('position',new T.BufferAttribute(new Float32Array(6),3));
@@ -36,7 +38,9 @@ export function createCombat(T, scene, box, oval, groundAt, blocked) {
       return pivot;
     });
     const bar=healthBar();bar.draw(100);model.add(bar.sprite);
-    bots.push({model,bar,legs,x,z,hp:100,phase:bots.length,alert:0,cooldown:0,respawn:0,gas:0,gasTick:0});
+    const appearance=createBotAppearance(T,model,box,oval);
+    const profile=appearance.roll();
+    bots.push({model,appearance,profile,bar,legs,x,z,hp:100,phase:bots.length,alert:0,cooldown:0,respawn:0,gas:0,gasTick:0});
   }
   const delta=new T.Vector3(), forward=new T.Vector3();
   function clearPath(position,target) {
@@ -49,6 +53,7 @@ export function createCombat(T, scene, box, oval, groundAt, blocked) {
   }
   function damageBot(bot,amount) {
     bot.hp=Math.max(0,bot.hp-amount);
+    playSound('botHit');
     bot.bar.draw(bot.hp);
     if(bot.hp)return;
     bot.model.visible=false;bot.respawn=15;bot.alert=0;bot.gas=0;
@@ -75,7 +80,7 @@ export function createCombat(T, scene, box, oval, groundAt, blocked) {
           bot.respawn-=dt;
           if(bot.respawn>0)continue;
           model.position.set(bot.x,groundAt(bot.x,bot.z),bot.z);
-          model.visible=true;bot.hp=100;bot.bar.draw(100);
+          model.visible=true;bot.hp=100;bot.bar.draw(100);bot.profile=bot.appearance.roll();
         }
         if(bot.gas>0) {
           bot.gas-=dt;bot.gasTick-=dt;
@@ -88,7 +93,7 @@ export function createCombat(T, scene, box, oval, groundAt, blocked) {
         bot.phase+=dt;
         delta.copy(player.position).sub(p);
         const distance=Math.hypot(delta.x,delta.z);
-        const chasing=bot.alert>0 && distance<15;
+        const chasing=(bot.alert>0 || distance<3.5) && distance<15 && clearPath(p,player.position);
         if(!chasing)delta.set(bot.x+Math.sin(bot.phase*.55)*2.4-p.x,0,bot.z+Math.cos(bot.phase*.55)*2.4-p.z);
         delta.y=0;
         const speed=chasing?2.4:1.5;
@@ -102,16 +107,36 @@ export function createCombat(T, scene, box, oval, groundAt, blocked) {
           bot.legs.forEach((leg,i)=>leg.rotation.x=Math.sin(bot.phase*9+i*Math.PI)*.44);
         }
         if(chasing && distance<1.65 && Math.abs(player.position.y-p.y)<1.1 && !bot.cooldown) {
-          bot.cooldown=1.2;damage(9);
+          bot.cooldown=1.2;playSound('botAttack');damage(9);
         }
       }
     },
-    attack(position,yaw,weapon) {
+    attack(position,yaw,weapon,pitch=0) {
       forward.set(-Math.sin(yaw),0,-Math.cos(yaw));
+      const origin=position.clone();
+      if(weapon.ranged) {
+        forward.multiplyScalar(Math.cos(pitch));forward.y=-Math.sin(pitch);
+        origin.y+=1.66;
+      }
       let target=null, closest=weapon.range;
+      if(weapon.ranged)for(let step=.15;step<closest;step+=.15) {
+        const x=origin.x+forward.x*step,y=origin.y+forward.y*step,z=origin.z+forward.z*step;
+        if(y<=groundAt(x,z) || (y<(origin.x>200?3.6:11) && blocked(x,z)) || (origin.x>200 && y>=3.6)) {
+          closest=step;break;
+        }
+      }
       for(const bot of bots) {
         if(!bot.hp)continue;
         delta.copy(bot.model.position).sub(position);
+        if(weapon.ranged) {
+          const scale=bot.profile.scale;
+          delta.copy(bot.model.position).sub(origin);delta.y+=.98*scale;
+          const along=delta.dot(forward);
+          if(along<.12 || along>closest)continue;
+          delta.addScaledVector(forward,-along);
+          if((delta.x/.38)**2+(delta.y/.83)**2+(delta.z/.38)**2<=scale**2){target=bot;closest=along;}
+          continue;
+        }
         const distance=Math.hypot(delta.x,delta.z);
         if(distance>closest || Math.abs(delta.y)>1.3)continue;
         delta.y=0;
@@ -119,21 +144,16 @@ export function createCombat(T, scene, box, oval, groundAt, blocked) {
         if(clearPath(position,bot.model.position)){closest=distance;target=bot;}
       }
       if(weapon.ranged) {
-        const end=target?delta.copy(target.model.position):delta.copy(position).addScaledVector(forward,weapon.range);
-        if(!target)for(let step=.3;step<weapon.range;step+=.3) {
-          if(blocked(position.x+forward.x*step,position.z+forward.z*step)) {
-            end.copy(position).addScaledVector(forward,step);break;
-          }
-        }
+        const end=delta.copy(origin).addScaledVector(forward,closest);
         const points=tracerGeometry.attributes.position;
-        points.setXYZ(0,position.x+forward.x*.55,position.y+1.22,position.z+forward.z*.55);
-        points.setXYZ(1,end.x,end.y+1.22,end.z);
+        points.setXYZ(0,origin.x,origin.y,origin.z);
+        points.setXYZ(1,end.x,end.y,end.z);
         points.needsUpdate=true;
         tracerTime=.12;tracer.visible=true;tracer.material.opacity=1;
       }
       if(!target)return 'Miss';
       damageBot(target,weapon.damage);
-      if(target.hp){target.alert=7;return 'Practice bot · '+target.hp+' HP';}
+      if(target.hp){target.alert=7;return target.profile.name+' · '+target.hp+' HP';}
       return 'Practice bot defeated';
     }
   };

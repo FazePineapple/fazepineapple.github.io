@@ -35,3 +35,17 @@
 #gas::-webkit-meter-optimum-value{background:#adca76}
 @media(pointer:coarse){#actions{top:181px}#touch{bottom:144px}.map{bottom:210px}}
 @media(max-height:550px){#emoteButton{right:133px;top:67px}#soundButton{right:133px;top:105px}}
+#deathScreen{position:absolute;inset:0;display:grid;place-items:center;z-index:7;background:#22111765;backdrop-filter:grayscale(.8);color:#dd5754;text-shadow:0 3px 0 #210e0e;font:1000 clamp(48px,13vw,150px) system-ui;letter-spacing:.06em}
+#reticle{position:absolute;transform:translate(-50%,-50%);font:800 22px system-ui;color:#efffdb;text-shadow:0 1px 4px #142119;z-index:3}
+#settingsButton{margin-left:6px}
+#settingsPanel{position:absolute;inset:0;display:grid;place-items:center;z-index:8;background:#101a14d9;padding:12px}
+#settingsPanel .inventory-panel{max-height:95vh;overflow:auto;width:min(600px,96vw)}
+.settings-options,#bindings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.settings-options label{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:12px}
+.settings-options input[type=range]{width:min(110px,45%)}
+#settingsPanel button{margin:0}
+#bindings button{min-width:0;text-align:left;font-size:11px}
+#bindings button[aria-pressed=true]{background:#f2cf8f}
+#bindingMessage{min-height:2.5em;font-size:12px}
+.settings-buttons{display:flex;justify-content:flex-end;gap:6px;margin-top:12px}
+@media(max-width:480px){.settings-options{grid-template-columns:1fr}}
