@@ -1,0 +1,43 @@
+name: Publish versioned RomGame
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/configure-pages@v5
+      - name: Stage playable build and stamp version
+        run: |
+          set -eu
+          mkdir -p _site/rom-demo
+          cp index.html .nojekyll _site/
+          cp -R rom-demo/dist _site/rom-demo/
+          version=$(git rev-list --first-parent --count HEAD)
+          page=_site/rom-demo/dist/index.html
+          grep -q 'id="buildVersion">Dev build<' "$page"
+          sed -i "s/id=\"buildVersion\">Dev build</id=\"buildVersion\">v$version</" "$page"
+          node --check _site/rom-demo/dist/game.bundle.js
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - uses: actions/deploy-pages@v4
+        id: deploy

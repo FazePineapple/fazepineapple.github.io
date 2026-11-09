@@ -59,8 +59,8 @@ function boot() {
     map.anisotropy = renderer.capabilities.getMaxAnisotropy();
     return map;
   }
-  function normalMap(colorMap, strength) {
-    const source=colorMap.image;
+  function normalMap(colorMap, strength, heightMap=colorMap) {
+    const source=heightMap.image;
     const size=source.width;
     const pixels=source.getContext('2d').getImageData(0,0,size,size).data;
     const sample=(x,y)=>pixels[((y+size)%size*size+(x+size)%size)*4]/255;
@@ -90,7 +90,21 @@ function boot() {
         for(let i=0;i<128;i+=32) {c.fillRect(0,i,128,1);c.fillRect(i,0,1,128);}
       }
     }, repeats);
-    return new T.MeshStandardMaterial({map,normalMap:normalMap(map,paving?3:1.4)});
+    const height=texture(128,c=>{
+      c.fillStyle='#969696'; c.fillRect(0,0,128,128);
+      for(let i=0;i<1400;i++) {
+        const shade=100+random()*90;
+        c.fillStyle='rgb('+shade+' '+shade+' '+shade+')';
+        c.fillRect(random()*128,random()*128,1+random()*3,1+random()*2);
+      }
+      if(paving) {
+        c.fillStyle='#626262';
+        for(let i=0;i<128;i+=32){c.fillRect(i,0,2,128);c.fillRect(0,i,128,2);}
+      }
+    });
+    const normal=normalMap(map,paving?2.8:1.2,height);
+    height.dispose();
+    return new T.MeshStandardMaterial({map,normalMap:normal,roughness:.89});
   }
   const grass = surface('#688052',['#789459','#60784b','#71854b','#84915b'],52);
   const paving = surface('#b1ad9f',['#aaa99d','#bbb7aa','#a29f92'],9,true);
@@ -112,7 +126,24 @@ function boot() {
       c.fillRect(col*32+(row%2)*16,row*128/12,31,128/12-1);
     }
   });
-  const brickNormal=normalMap(brickMap,5);
+  const brickHeight=texture(128,c=>{
+    c.fillStyle='#555555';c.fillRect(0,0,128,128);
+    for(let row=0;row<12;row++) for(let col=-1;col<5;col++) {
+      const x=col*32+(row%2)*16,y=row*128/12;
+      c.fillStyle='#aaaaaa';c.fillRect(x,y,31,128/12-1);
+      c.fillStyle='#cccccc';c.fillRect(x+1,y+1,29,128/12-3);
+    }
+    for(let i=0;i<450;i++) {
+      const x=random()*128,y=random()*128;
+      const row=Math.floor(y*12/128);
+      const brickX=(x+32-(row%2)*16)%32,brickY=y-row*128/12;
+      if(brickX>2 && brickX<29 && brickY>2 && brickY<7) {
+        c.fillStyle=i%2?'#b8b8b8':'#d8d8d8';c.fillRect(x,y,1.5,1);
+      }
+    }
+  });
+  const brickNormal=normalMap(brickMap,3,brickHeight);
+  brickHeight.dispose();
   function brick(w,h) {
     const map=brickMap.clone();
     map.repeat.set(w/2.9,h/2.35);
