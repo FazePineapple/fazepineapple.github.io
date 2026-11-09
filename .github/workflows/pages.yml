@@ -33,8 +33,8 @@ jobs:
           cp -R rom-demo/dist _site/rom-demo/
           version=$(git rev-list --first-parent --count HEAD)
           page=_site/rom-demo/dist/index.html
-          grep -q 'id="buildVersion">Dev build<' "$page"
-          sed -i "s/id=\"buildVersion\">Dev build</id=\"buildVersion\">v$version</" "$page"
+          grep -q 'id="buildVersion">[^<]*<' "$page"
+          sed -i "s/id=\"buildVersion\">[^<]*</id=\"buildVersion\">v$version</" "$page"
           node --check _site/rom-demo/dist/game.bundle.js
       - uses: actions/upload-pages-artifact@v4
         with:
