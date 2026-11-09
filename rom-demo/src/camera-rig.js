@@ -79,7 +79,7 @@ export function createCameraRig(game) {
     toggleView() {
       state.firstPerson = !state.firstPerson;
       rom.rig.visible = !state.firstPerson;
-      game.notice(state.firstPerson ? 'First person' : 'Third person');
+      game.notice(state.firstPerson ? 'Pirmojo asmens vaizdas' : 'Trečiojo asmens vaizdas');
     },
   };
 }

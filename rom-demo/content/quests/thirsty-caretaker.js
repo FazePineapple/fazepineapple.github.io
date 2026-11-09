@@ -2,23 +2,23 @@
 export default {
   id:'thirsty-caretaker',
   kind:'side',
-  title:'Thirsty Work',
-  summary:'The caretaker could use a juice pack.',
+  title:'Troškulys',
+  summary:'Kiemsargiui praverstų sulčių pakelis.',
   requires:['first-day'],
   steps:[
     {
       id:'find-juice',
-      text:'Find a juice pack',
+      text:'Surask sulčių pakelį',
       on:'item:picked', match:{id:'juice'},
       when:api => api.has('juice'),
       target:{item:'juice'},
     },
     {
       id:'deliver',
-      text:'Give the juice to the caretaker',
+      text:'Atiduok sultis kiemsargiui',
       on:'story:delivered', match:{item:'juice', npc:'caretaker'},
       target:{npc:'caretaker'},
     },
   ],
-  rewards:{items:[['cinnamon', 1]], message:'Thirsty Work complete · Suktukas'},
+  rewards:{items:[['cinnamon', 1]], message:'Troškulys įveiktas · Suktukas'},
 };

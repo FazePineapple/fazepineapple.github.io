@@ -1,124 +1,121 @@
 <!doctype html>
-<html lang="en">
+<html lang="lt">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>The Legend of Rom | Campus Demo</title>
+<title>Legenda apie Romą | Nemenčinės mokyklos istorijos</title>
 <link rel="stylesheet" href="style.css">
 <script defer src="game.bundle.js"></script>
 </head>
 <body>
-<main id="world" aria-label="3D school campus"></main>
+<main id="world" aria-label="3D mokyklos teritorija"></main>
 <div class="grain"></div><div id="buildVersion">Dev build</div>
 <section id="menu" aria-labelledby="title">
-  <header><span class="mark">R</span><span>NEMENČINĖ<br><small>CAMPUS STORIES</small></span><span class="version">DEMO / 01</span></header>
-  <img class="rom" src="rom.jpg" alt="Full-body photo of Rom wearing a denim jacket">
+  <header><span class="mark">R</span><span>NEMENČINĖ<br><small>MOKYKLOS ISTORIJOS</small></span><span class="version">DEMO / 01</span></header>
+  <img class="rom" src="rom.jpg" alt="Romas visu ūgiu su džinsine striuke">
   <div class="intro">
-    <div class="eyebrow"><i></i> STORY DEMO</div>
-    <h1 id="title"><span>THE LEGEND OF</span><strong>ROM</strong></h1>
-    <p>Explore Nemenčinės Gedimino gimnazija as Rom, a student with a busy first day back.</p>
-    <button id="start">Start game <b>↗</b></button>
-    <button id="settingsButton">Settings</button>
-    <button id="newGame" class="secondary" hidden>New game</button>
-    <button id="profileButton" class="secondary" hidden>Online profile</button>
+    <div class="eyebrow"><i></i> SIUŽETINĖ DEMO VERSIJA</div>
+    <h1 id="title"><span>LEGENDA APIE</span><strong>ROMĄ</strong></h1>
+    <p>Tyrinėk Nemenčinės Gedimino gimnaziją kaip Romas – mokinys, kurio laukia įtempta pirmoji diena.</p>
+    <button id="start">Pradėti žaidimą <b>↗</b></button>
+    <button id="settingsButton">Nustatymai</button>
+    <button id="newGame" class="secondary" hidden>Naujas žaidimas</button>
+    <button id="profileButton" class="secondary" hidden>Internetinis profilis</button>
     <p id="storyStatus" role="status" hidden></p>
     <dialog id="profileDialog">
-      <h2>Online profile</h2>
+      <h2>Internetinis profilis</h2>
       <form id="storyAccount" hidden>
-        <p><label>Username <input name="username" autocomplete="username" required minlength="3" maxlength="32"></label></p>
-        <p><label>Password <input name="password" type="password" autocomplete="current-password" required minlength="10" maxlength="128"></label></p>
-        <button value="login">Sign in</button>
-        <button value="register">Create account</button>
+        <p><label>Vartotojo vardas <input name="username" autocomplete="username" required minlength="3" maxlength="32"></label></p>
+        <p><label>Slaptažodis <input name="password" type="password" autocomplete="current-password" required minlength="10" maxlength="128"></label></p>
+        <button value="login">Prisijungti</button>
+        <button value="register">Sukurti paskyrą</button>
       </form>
       <p id="storyMessage" role="status"></p>
       <div id="profileContent"></div>
-      <button id="storySignOut" type="button" hidden>Sign out</button>
-      <form method="dialog"><button>Close</button></form>
+      <button id="storySignOut" type="button" hidden>Atsijungti</button>
+      <form method="dialog"><button>Uždaryti</button></form>
     </dialog>
-    <p id="error" role="alert" hidden>This demo needs a browser with WebGL enabled.</p>
+    <p id="error" role="alert" hidden>Šiam žaidimui reikia naršyklės su įjungtu WebGL.</p>
   </div>
-  <footer><span>01 / GEDIMINO GIMNAZIJA</span><span>14 EŽERO G. · NEMENČINĖ</span></footer>
+  <footer><span>01 / GEDIMINO GIMNAZIJA</span><span>EŽERO G. 14 · NEMENČINĖ</span></footer>
 </section>
-<section id="hud" hidden aria-label="Game controls">
-  <div class="location"><span>LOCATION</span><strong id="zone">School courtyard</strong><span id="clock" aria-label="In-game time">08:00</span></div>
-  <div id="objective" hidden aria-live="polite"><span id="objectiveKind">MAIN STORY</span><strong id="objectiveTitle"></strong><p id="objectiveText"></p></div>
+<section id="hud" hidden aria-label="Žaidimo valdymas">
+  <div class="location"><span>VIETA</span><strong id="zone">Mokyklos kiemas</strong><span id="clock" aria-label="Laikas žaidime">08:00</span></div>
+  <div id="objective" hidden aria-live="polite"><span id="objectiveKind">SIUŽETAS</span><strong id="objectiveTitle"></strong><p id="objectiveText"></p><p id="objectiveNote" hidden></p></div>
   <div id="toasts" aria-live="polite"></div>
   <div id="waypoint" hidden aria-hidden="true"><i></i><span id="waypointLabel"></span></div>
-  <button id="menuButton">Esc &nbsp; Menu</button>
+  <button id="menuButton">Esc &nbsp; Meniu</button>
   <div class="side-buttons">
-    <button id="packButton"><span data-binding="KeyI">I</span> &nbsp; Inventory</button>
-    <button id="journalButton"><span data-binding="KeyL">L</span> &nbsp; Journal</button>
-    <button id="emoteButton"><span data-binding="KeyB">B</span> &nbsp; Emotes</button>
-    <button id="soundButton">Sound on</button>
+    <button id="packButton"><span data-binding="KeyI">I</span> &nbsp; Kuprinė</button>
+    <button id="journalButton"><span data-binding="KeyL">L</span> &nbsp; Žurnalas</button>
+    <button id="emoteButton"><span data-binding="KeyB">B</span> &nbsp; Emocijos</button>
+    <button id="soundButton">Garsas įjungtas</button>
   </div>
-  <div class="map"><span>CAMPUS MAP <b>N ↑</b></span><canvas id="radar" width="158" height="128" aria-label="Campus map"></canvas></div>
-  <div id="deathScreen" role="status" hidden><strong>WASTED</strong></div><div id="reticle" aria-hidden="true" hidden>+</div><div id="flight" hidden>Jetpack · Hold jump to thrust</div><div id="effects" hidden></div>
+  <div class="map"><span>ŽEMĖLAPIS <b>Š ↑</b></span><canvas id="radar" width="158" height="128" aria-label="Mokyklos žemėlapis"></canvas></div>
+  <div id="deathScreen" role="status" hidden><strong>ŽUVAI</strong></div><div id="reticle" aria-hidden="true" hidden>+</div><div id="flight" hidden>Reaktyvinė kuprinė · Laikyk šuolio klavišą</div><div id="effects" hidden></div>
   <div id="quickbar">
     <div id="prompt" role="status" hidden></div>
     <div class="vitals">
-      <label>♥ Health <span id="hpValue">100</span><meter id="health" min="0" max="100" value="100"></meter></label>
-      <label>ϟ Stamina <span id="spValue">100</span><meter id="stamina" min="0" max="100" value="100"></meter></label>
+      <label>♥ Gyvybė <span id="hpValue">100</span><meter id="health" min="0" max="100" value="100"></meter></label>
+      <label>ϟ Ištvermė <span id="spValue">100</span><meter id="stamina" min="0" max="100" value="100"></meter></label>
     </div>
     <div class="vitals secondary-vitals">
-      <label>Bladder <span id="bladderValue">0</span><meter id="bladder" min="0" max="100" value="0"></meter></label>
-      <label>Gas <span id="gasValue">0</span><meter id="gas" min="0" max="100" value="0"></meter></label>
-      <label>Bowel <span id="bowelValue">0</span><meter id="bowel" min="0" max="100" value="0"></meter></label>
+      <label>Pūslė <span id="bladderValue">0</span><meter id="bladder" min="0" max="100" value="0"></meter></label>
+      <label>Dujos <span id="gasValue">0</span><meter id="gas" min="0" max="100" value="0"></meter></label>
+      <label>Žarnynas <span id="bowelValue">0</span><meter id="bowel" min="0" max="100" value="0"></meter></label>
+      <label>Skrandis <span id="stomachValue">0</span><meter id="stomach" min="0" max="100" value="0" high="80"></meter></label>
     </div>
-    <div id="equipped" aria-label="Equipped weapon"></div><div id="hotbar" class="slots" aria-label="Hotbar"></div>
+    <div id="equipped" aria-label="Rankoje"></div><div id="hotbar" class="slots" aria-label="Greitoji juosta"></div>
   </div>
-  <div id="help" class="help"><kbd data-binding="KeyW KeyA KeyS KeyD">WASD</kbd> Walk <kbd data-binding="ShiftLeft">Shift</kbd> Run <kbd data-binding="Space">Space</kbd> Jump <kbd data-binding="KeyE">E</kbd> Interact <kbd data-binding="KeyF">F</kbd> Use <kbd data-binding="KeyX" data-binding-prefix="LMB / ">LMB / X</kbd> Use held item <kbd data-binding="KeyQ">Q</kbd> Throw <kbd>1–9</kbd> Hotbar <kbd data-binding="KeyL">L</kbd> Journal <kbd data-binding="KeyN">N</kbd> Day / night <kbd data-binding="KeyV">V</kbd> Camera <kbd data-binding="KeyC">C</kbd> Climb <kbd data-binding="KeyJ">J</kbd> Jetpack <kbd data-binding="KeyR">R</kbd> Unstuck <kbd data-binding="KeyH">H</kbd> Hide help</div>
-  <button id="helpHint" class="help-hint" hidden><span data-binding="KeyH">H</span> &nbsp; Controls</button>
-  <div id="actions"><button id="jumpButton">Jump</button><button id="jetButton">Jetpack</button><button id="pickButton">Interact</button><button id="useButton">Use / equip</button><button id="attackButton">Use held item</button><button id="throwButton">Throw</button></div>
-  <section id="emotes" class="overlay" aria-label="Emotes" hidden>
+  <div id="help" class="help"><kbd data-binding="KeyW KeyA KeyS KeyD">WASD</kbd> Eiti <kbd data-binding="ShiftLeft">Shift</kbd> Bėgti <kbd data-binding="Space">Tarpas</kbd> Šokti <kbd data-binding="KeyE">E</kbd> Sąveika <kbd data-binding="KeyF">F</kbd> Naudoti <kbd data-binding="KeyX" data-binding-prefix="KPK / ">KPK / X</kbd> Veiksmas <kbd data-binding="KeyQ">Q</kbd> Mesti <kbd>1–9</kbd> Juosta <kbd data-binding="KeyB">B</kbd> Emocijos <kbd data-binding="KeyL">L</kbd> Žurnalas <kbd data-binding="KeyN">N</kbd> Diena / naktis <kbd data-binding="KeyV">V</kbd> Kamera <kbd data-binding="KeyC">C</kbd> Lipti <kbd data-binding="KeyJ">J</kbd> Reaktyvinė kuprinė <kbd data-binding="KeyR">R</kbd> Į kiemą <kbd data-binding="KeyH">H</kbd> Slėpti pagalbą</div>
+  <button id="helpHint" class="help-hint" hidden><span data-binding="KeyH">H</span> &nbsp; Valdymas</button>
+  <div id="actions"><button id="jumpButton">Šokti</button><button id="jetButton">Reaktyvinė kuprinė</button><button id="pickButton">Sąveika</button><button id="useButton">Naudoti</button><button id="attackButton">Veiksmas</button><button id="throwButton">Mesti</button></div>
+  <section id="emotes" class="overlay" aria-label="Emocijos" hidden>
     <div class="inventory-panel">
-      <h2>Emotes</h2>
-      <div class="emote-grid">
-        <button data-emote="wave">Wave</button><button data-emote="flip">Somersault</button>
-        <button data-emote="fall">Fall over</button><button data-emote="laugh">Laugh</button>
-        <button data-emote="fart">Fart</button><button data-emote="pee">Pee</button>
-      </div>
-      <button>Back to game</button>
+      <h2>Emocijos</h2>
+      <div class="emote-grid"></div>
+      <button id="closeEmotes">Grįžti į žaidimą</button>
     </div>
   </section>
-  <section id="inventory" class="overlay" aria-label="Inventory" hidden>
+  <section id="inventory" class="overlay" aria-label="Kuprinė" hidden>
     <div class="inventory-panel">
-      <h2>Inventory</h2>
-      <p id="itemDetails">Select an item, then click a slot to move or stack it.</p>
-      <div id="backpack" class="slots" aria-label="Backpack"></div>
-      <div id="packHotbar" class="slots" aria-label="Inventory hotbar"></div>
-      <button id="packUse">Use one</button><button id="packThrow">Throw one</button><button id="closePack">Back to game</button>
+      <h2>Kuprinė</h2>
+      <p id="itemDetails">Pasirink daiktą, tada spustelk langelį, kad jį perkeltum ar sudėtum į krūvą.</p>
+      <div id="backpack" class="slots" aria-label="Kuprinės skyriai"></div>
+      <div id="packHotbar" class="slots" aria-label="Greitoji juosta"></div>
+      <button id="packUse">Naudoti</button><button id="packThrow">Išmesti vieną</button><button id="closePack">Grįžti į žaidimą</button>
     </div>
   </section>
-  <section id="questLog" class="overlay" aria-label="Quest journal" hidden>
+  <section id="questLog" class="overlay" aria-label="Užduočių žurnalas" hidden>
     <div class="inventory-panel journal-panel">
-      <h2>Journal</h2>
+      <h2>Užduočių žurnalas</h2>
       <div id="questLogContent"></div>
-      <button id="closeQuestLog">Back to game</button>
+      <button id="closeQuestLog">Grįžti į žaidimą</button>
     </div>
   </section>
-  <section id="dialogue" aria-label="Conversation" hidden>
+  <section id="dialogue" aria-label="Pokalbis" hidden>
     <div class="dialogue-panel">
       <strong id="dialogueSpeaker"></strong>
       <p id="dialogueText"></p>
       <div id="dialogueChoices"></div>
     </div>
   </section>
-  <div id="touch"><button data-key="KeyW" aria-label="Forward">↑</button><div><button data-key="KeyA" aria-label="Left">←</button><button data-key="KeyS" aria-label="Back">↓</button><button data-key="KeyD" aria-label="Right">→</button></div></div>
+  <div id="touch"><button data-key="KeyW" aria-label="Pirmyn">↑</button><div><button data-key="KeyA" aria-label="Į kairę">←</button><button data-key="KeyS" aria-label="Atgal">↓</button><button data-key="KeyD" aria-label="Į dešinę">→</button></div></div>
 </section>
-<section id="settingsPanel" aria-label="Settings" hidden>
+<section id="settingsPanel" aria-label="Nustatymai" hidden>
   <div class="inventory-panel">
-    <h2>Settings</h2>
+    <h2>Nustatymai</h2>
     <div class="settings-options">
-      <label>Master volume <input id="masterVolume" type="range" min="0" max="100" value="100"></label>
-      <label><input id="settingsMute" type="checkbox"> Mute sound</label>
-      <label>Mouse sensitivity <input id="lookSensitivity" type="range" min=".25" max="2.5" step=".05" value="1"></label>
-      <label><input id="invertLook" type="checkbox"> Invert vertical look</label>
-      <label>Graphics <select id="graphicsQuality"><option value="auto">Auto (adaptive)</option><option value="high">High</option><option value="performance">Performance</option></select></label>
+      <label>Garsumas <input id="masterVolume" type="range" min="0" max="100" value="100"></label>
+      <label><input id="settingsMute" type="checkbox"> Išjungti garsą</label>
+      <label>Pelės jautrumas <input id="lookSensitivity" type="range" min=".25" max="2.5" step=".05" value="1"></label>
+      <label><input id="invertLook" type="checkbox"> Apversti vertikalų žvilgsnį</label>
+      <label>Grafika <select id="graphicsQuality"><option value="auto">Automatinė</option><option value="high">Aukšta</option><option value="performance">Greitesnė</option></select></label>
     </div>
     <p id="bindingMessage" role="status"></p>
     <div id="bindings"></div>
     <div class="settings-buttons">
-      <button id="resetSettings" type="button">Restore defaults</button>
-      <button id="closeSettings" type="button">Done</button>
+      <button id="resetSettings" type="button">Atkurti numatytuosius</button>
+      <button id="closeSettings" type="button">Baigta</button>
     </div>
   </div>
 </section>

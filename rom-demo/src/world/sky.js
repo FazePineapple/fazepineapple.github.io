@@ -85,6 +85,7 @@ export function createSky(T, scene, sun, ambient) {
   let hour=8;
   let blend=0;
   let drift=0;
+  let minutesPerSecond=1;
 
   function toggle() {
     hour=hour>=20 || hour<6?8:22;
@@ -101,6 +102,8 @@ export function createSky(T, scene, sun, ambient) {
     },
     toggle,
     hour:()=>hour,
+    /** Game minutes that pass per real second (content/schedule.js). */
+    setSpeed(value){if(value>0)minutesPerSecond=value;},
     setHour(value){if(Number.isFinite(value))hour=((value%24)+24)%24;},
     minute:()=>Math.floor(hour*60),
     time() {
@@ -108,7 +111,7 @@ export function createSky(T, scene, sun, ambient) {
       return String(Math.floor(minutes/60)).padStart(2,'0')+':'+String(minutes%60).padStart(2,'0');
     },
     update(dt,camera,outdoors,playing) {
-      if(playing)hour=(hour+dt*.1)%24;
+      if(playing)hour=(hour+dt*minutesPerSecond/60)%24;
       const darkness=1-T.MathUtils.smoothstep(hour,5,8)+T.MathUtils.smoothstep(hour,17,21);
       blend=T.MathUtils.lerp(blend,darkness,1-Math.exp(-dt*1.25));
       scene.background.copy(daylightColor).lerp(midnightColor,blend);

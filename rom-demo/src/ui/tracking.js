@@ -40,8 +40,8 @@ export function createTracking(bus, notice) {
   function render() {
     button.hidden = !endpoint;
     status.hidden = !endpoint;
-    status.textContent = !online ? 'Online profile offline · progress saved on this device' :
-      state ? 'Online profile · ' + state.username : 'Online profile available · sign in to sync';
+    status.textContent = !online ? 'Internetinis profilis nepasiekiamas · pažanga saugoma šiame įrenginyje' :
+      state ? 'Internetinis profilis · ' + state.username : 'Internetinis profilis pasiekiamas · prisijunk';
     form.hidden = !online || Boolean(state);
     signOut.hidden = !token;
     content.replaceChildren();
@@ -58,8 +58,8 @@ export function createTracking(bus, notice) {
       }
       content.append(heading, list);
     }
-    section('Achievements', state.achievements.map(entry =>
-      entry.title + ' · ' + (entry.unlocked ? 'Unlocked' : (Math.floor(state.stats[entry.metric] ?? 0) + '/' + entry.target))));
+    section('Pasiekimai', state.achievements.map(entry =>
+      entry.title + ' · ' + (entry.unlocked ? 'Atrakinta' : (Math.floor(state.stats[entry.metric] ?? 0) + '/' + entry.target))));
   }
 
   function request(path, options = {}) {
@@ -97,7 +97,7 @@ export function createTracking(bus, notice) {
       if (!token && next.online !== true) throw new Error('Invalid health response');
       const unlocked = state && token && next.achievements.find(entry => entry.unlocked &&
         state.achievements.some(previous => previous.id === entry.id && !previous.unlocked));
-      if (unlocked) notice('Achievement unlocked · ' + unlocked.title);
+      if (unlocked) notice('Pasiekimas atrakintas · ' + unlocked.title);
       state = token ? next : undefined;
       online = true;
     } catch {
@@ -153,7 +153,7 @@ export function createTracking(bus, notice) {
       message.textContent = '';
       void sync();
     } catch {
-      message.textContent = 'Tracking server unavailable. You can still play.';
+      message.textContent = 'Serveris nepasiekiamas. Žaisti vis tiek galima.';
       void sync();
     } finally {
       buttons.forEach(entry => { entry.disabled = false; });

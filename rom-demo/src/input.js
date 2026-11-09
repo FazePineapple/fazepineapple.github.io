@@ -9,19 +9,40 @@ export function createInput(game) {
   const {settings, state, renderer} = game;
   const canvas = renderer.domElement;
   const keys = new Set(), touchKeys = new Map();
-  let dragging = false, lastX = 0, lastY = 0, sprayPointer = null;
+  let dragging = false, lastX = 0, lastY = 0, sprayPointer = null, mouseHeld = false;
 
   const down = (...codes) => codes.some(code => keys.has(code) || [...touchKeys.values()].includes(code));
   const pointerLocked = () => document.pointerLockElement === canvas;
+  /** setPointerCapture throws if the pointer is no longer active; never let that cancel a click. */
+  const capture = (element, id) => { try { element.setPointerCapture(id); } catch { /* Pointer already released. */ } };
 
   function release() {
     keys.clear(); touchKeys.clear(); dragging = false; sprayPointer = null;
   }
 
-  function lockPointer() {
+  // Some browsers and embedded views refuse pointer lock. After a refusal,
+  // clicks act straight away (drag-to-look still works) and we only retry
+  // capturing the mouse every few seconds.
+  let lockRetryAt = 0, onLockFailed = null;
+  document.addEventListener('pointerlockerror', () => {
+    lockRetryAt = performance.now() + 4000;
+    onLockFailed?.();
+    onLockFailed = null;
+  });
+  const canTryLock = () => Boolean(canvas.requestPointerLock) && performance.now() >= lockRetryAt;
+
+  function lockPointer(failed = null) {
     if (!canvas.requestPointerLock || pointerLocked() || !game.usesMouseLook) return;
-    try { canvas.requestPointerLock()?.catch?.(() => {}); } catch { /* Needs a user gesture; the next click locks. */ }
+    onLockFailed = failed;
+    try {
+      const request = canvas.requestPointerLock();
+      request?.catch?.(() => { lockRetryAt = performance.now() + 4000; onLockFailed?.(); onLockFailed = null; });
+    } catch {
+      lockRetryAt = performance.now() + 4000;
+      onLockFailed?.(); onLockFailed = null;
+    }
   }
+  document.addEventListener('pointerlockchange', () => { if (pointerLocked()) { lockRetryAt = 0; onLockFailed = null; } });
 
   const playing = () => game.active && !state.deathTime && !game.panels.isOpen();
 
@@ -74,18 +95,21 @@ export function createInput(game) {
     if (!playing()) return;
     // Drag-to-look works everywhere; mice also get pointer lock.
     dragging = true; lastX = event.clientX; lastY = event.clientY;
-    canvas.setPointerCapture(event.pointerId);
+    capture(canvas, event.pointerId);
     if (event.pointerType !== 'mouse') return;
     game.usesMouseLook = true;
     if (event.button !== 0) return;
-    // The click that captures the mouse should not also swing or shoot.
-    if (!pointerLocked() && canvas.requestPointerLock) { lockPointer(); return; }
-    sprayPointer = event.pointerId;
-    game.actions.primaryAction();
+    mouseHeld = true;
+    const act = () => { if (mouseHeld) sprayPointer = event.pointerId; game.actions.primaryAction(); };
+    // The click that captures the mouse should not also swing or shoot,
+    // unless capturing fails, in which case the click acts as normal.
+    if (!pointerLocked() && canTryLock()) { lockPointer(act); return; }
+    act();
   });
   canvas.addEventListener('lostpointercapture', () => { dragging = false; });
   for (const type of ['pointerup', 'pointercancel']) window.addEventListener(type, event => {
     if (event.pointerId === sprayPointer) sprayPointer = null;
+    if (event.pointerType === 'mouse') mouseHeld = false;
     dragging = false;
   });
   document.addEventListener('pointerlockchange', () => {
@@ -103,12 +127,12 @@ export function createInput(game) {
   // On-screen touch controls.
   for (const button of $('touch').querySelectorAll('button')) {
     button.addEventListener('pointerdown', event => {
-      button.setPointerCapture(event.pointerId); touchKeys.set(event.pointerId, button.dataset.key);
+      capture(button, event.pointerId); touchKeys.set(event.pointerId, button.dataset.key);
     });
     button.addEventListener('lostpointercapture', event => touchKeys.delete(event.pointerId));
   }
   const jumpButton = $('jumpButton');
-  jumpButton.onpointerdown = event => { jumpButton.setPointerCapture(event.pointerId); touchKeys.set(event.pointerId, 'Space'); };
+  jumpButton.onpointerdown = event => { capture(jumpButton, event.pointerId); touchKeys.set(event.pointerId, 'Space'); };
   jumpButton.onlostpointercapture = event => touchKeys.delete(event.pointerId);
   jumpButton.onclick = () => { if (!state.jetpack) game.movement.jump(); };
   $('jetButton').onclick = () => game.movement.toggleJetpack();
@@ -117,7 +141,7 @@ export function createInput(game) {
   $('throwButton').onclick = () => game.actions.throwItem();
   const attackButton = $('attackButton');
   attackButton.onclick = () => game.actions.primaryAction();
-  attackButton.onpointerdown = event => { if (event.button === 0) { sprayPointer = event.pointerId; attackButton.setPointerCapture(event.pointerId); } };
+  attackButton.onpointerdown = event => { if (event.button === 0) { sprayPointer = event.pointerId; capture(attackButton, event.pointerId); } };
   attackButton.onlostpointercapture = () => { sprayPointer = null; };
 
   return {

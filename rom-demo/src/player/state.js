@@ -5,17 +5,17 @@ export function createPlayerState() {
     yaw:0, pitch:0, stride:0, firstPerson:false,
     // Vitals.
     health:100, stamina:100, exhausted:false, recovery:0,
-    meters:{bladder:0, gas:0, bowel:0},
+    meters:{bladder:0, gas:0, bowel:0, stomach:0},
     timers:{dizzy:0, gas:0, bladder:0},
-    pressureTime:0, gasDelay:0, puffTime:0,
+    pressureTime:0, gasDelay:0, puffTime:0, nausea:0,
     // Movement.
     airborne:false, verticalSpeed:0, landingTime:0,
     moving:false, running:false, thrust:false,
-    climbing:null, jetpack:false,
+    climbing:null, jetpack:false, seat:null,
     equipment:{jetpack:false},
     // Actions and animation.
     deathTime:0, attackTime:0, swing:0,
-    emote:null, emoteTime:0, pickupMotion:null, drinkMotion:null,
+    emote:null, emoteTime:0, emoteMidpoint:false, pickupMotion:null, drinkMotion:null,
   };
 }
 

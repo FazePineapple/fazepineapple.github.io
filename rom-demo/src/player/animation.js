@@ -1,52 +1,55 @@
+import {emotes} from './emotes.js';
+
 /**
  * Procedural body animation: walk cycle, falling and landing poses, climbing,
- * attack swings, emotes (wave, somersault, fall, laugh, fart, pee), picking
- * items up and drinking.
+ * attack swings, sitting on chairs, emotes (see emotes.js), picking items up
+ * and drinking.
  */
-export const emoteDurations = {wave:1.65, flip:.85, fall:1.55, laugh:1.55, fart:.72, pee:1.55};
-
 export function createAnimation(game) {
   const {T, state, rom, audio, collision} = game;
   const {limbs, rig, torso, rightArm} = rom;
   const handPoint = new T.Vector3();
+  const body = {rig, torso, limbs, rightArm, time:0, phase:0, envelope:0, hold:0};
 
-  function startEmote(name, {atRestroom = false} = {}) {
-    if (!emoteDurations[name] || state.emote || state.airborne || state.deathTime) return false;
-    if (name === 'pee' && !state.meters.bladder) { game.notice('Rom does not need the WC'); return false; }
-    state.emote = name; state.emoteTime = 0; state.swing = 0;
-    if (name === 'fart') game.vitals.emitGas();
-    if (name === 'laugh') audio.play('laugh');
-    if (name === 'pee') game.vitals.relieveBladder(atRestroom);
-    game.bus.emit('player:emote', {name, atRestroom});
+  function startEmote(name, options = {}) {
+    const def = emotes[name];
+    if (!def || state.airborne || state.deathTime || state.seat) return false;
+    if (state.emote && !options.force) return false;
+    if (def.canStart && !def.canStart(game, options)) return false;
+    state.emote = name; state.emoteTime = 0; state.emoteMidpoint = false; state.swing = 0;
+    if (def.sound) audio.play(def.sound);
+    def.start?.(game, options);
+    game.bus.emit('player:emote', {name, atRestroom:Boolean(options.atRestroom)});
     return true;
+  }
+
+  function stopEmote() {
+    state.emote = null;
+    for (const {arm} of limbs) arm.rotation.z = 0;
   }
 
   function updateEmote(dt) {
     rig.rotation.set(0, 0, 0); rig.position.y = 0;
     for (const drop of rom.drops) drop.visible = false;
+    if (state.seat) {
+      // Sitting on a chair: hips on the seat, legs forward.
+      rig.position.y = (game.items[state.seat.pickup.id].sit?.height ?? .47) - .86;
+      for (const {arm, leg} of limbs) { leg.rotation.x = -1.4; arm.rotation.x = -.45; arm.rotation.z = 0; }
+      return;
+    }
     if (!state.emote) return;
+    const def = emotes[state.emote];
     state.emoteTime += dt;
     const time = state.emoteTime;
-    const phase = Math.min(1, time / emoteDurations[state.emote]);
-    const envelope = Math.sin(Math.PI * phase);
-    if (state.emote === 'wave') {
-      rightArm.rotation.x = -1.8 * envelope;
-      rightArm.rotation.z = (.85 + Math.sin(time * 19) * .35) * envelope;
-    } else if (state.emote === 'flip') {
-      rig.rotation.x = phase * Math.PI * 2;
-      rig.position.y = envelope * 1.18 + (1 - Math.cos(rig.rotation.x)) * .91;
-      for (const {arm, leg} of limbs) { leg.rotation.x = -envelope * .94; arm.rotation.x = -envelope * 1.2; }
-    } else if (state.emote === 'fall') {
-      rig.rotation.x = -Math.min(1, phase * 4, (1 - phase) * 4) * 1.47;
-    } else if (state.emote === 'laugh') {
-      rig.rotation.x = Math.sin(time * 19) * .11 * envelope;
-      for (const {arm} of limbs) arm.rotation.x = -.7 * envelope;
-    } else if (state.emote === 'fart') {
-      rig.rotation.x = .25 * envelope;
-      rig.position.y = -.10 * envelope;
-      for (const {leg} of limbs) leg.rotation.x = -.24 * envelope;
-    } else if (state.emote === 'pee') {
-      for (const {arm} of limbs) arm.rotation.x = -.44 * envelope;
+    const phase = Math.min(1, time / def.duration);
+    Object.assign(body, {
+      time, phase,
+      envelope:Math.sin(Math.PI * phase),
+      hold:Math.min(1, phase * 6, (1 - phase) * 6),
+    });
+    def.pose(body);
+    if (!state.emoteMidpoint && phase >= .55) { state.emoteMidpoint = true; def.midpoint?.(game); }
+    if (state.emote === 'pee') {
       const {position, rotation} = rom.player;
       rom.drops.forEach((drop, i) => {
         const flight = (time * 2.5 + i / rom.drops.length) % 1;
@@ -57,7 +60,7 @@ export function createAnimation(game) {
         drop.position.set(x, position.y + .93 + .13 * flight - flight * flight * 1.05, z);
       });
     }
-    if (phase === 1) state.emote = null;
+    if (phase === 1) stopEmote();
   }
 
   function updateBody() {
@@ -149,5 +152,5 @@ export function createAnimation(game) {
     updateEmote(0);
   }
 
-  return {startEmote, startPickup, startDrink, update, updateEmote, reset};
+  return {startEmote, stopEmote, startPickup, startDrink, update, updateEmote, reset};
 }

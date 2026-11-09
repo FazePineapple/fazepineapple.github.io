@@ -29,6 +29,23 @@ test('every dialogue entry resolves to a real node for a fresh game', () => {
   }
 });
 
+test('every emote has a label, a duration and a pose', async () => {
+  const {emotes} = await import('../src/player/emotes.js');
+  for (const [id, emote] of Object.entries(emotes)) {
+    assert.equal(typeof emote.label, 'string', id);
+    assert.ok(emote.duration > 0, id);
+    assert.equal(typeof emote.pose, 'function', id);
+  }
+  assert.ok(Object.values(emotes).filter(emote => emote.menu !== false).length >= 12);
+});
+
+test('food restores health and overeating can trigger vomiting', () => {
+  const healing = Object.entries(items).filter(([, item]) => item.use?.effects?.some(effect => effect.health > 0)).map(([id]) => id);
+  assert.ok(healing.includes('bun') && healing.includes('cinnamon'));
+  const stomach = id => items[id].use.effects.find(effect => effect.meter === 'stomach')?.add ?? 0;
+  assert.ok(stomach('bun') * 3 > 100, 'three buns overfill the stomach');
+});
+
 test('event bus isolates failing listeners', () => {
   const bus = createEventBus();
   const seen = [];

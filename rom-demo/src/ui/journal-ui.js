@@ -6,7 +6,7 @@ export function createJournalUI(game) {
 
   function render() {
     const quests = game.quests.list().filter(quest => quest.status === 'active' || quest.status === 'done');
-    const sections = [['main', 'Main story'], ['side', 'Side quests']];
+    const sections = [['main', 'Siužetas'], ['side', 'Šalutinės užduotys']];
     content.replaceChildren();
     for (const [kind, title] of sections) {
       const entries = quests.filter(quest => quest.kind === kind)
@@ -17,7 +17,7 @@ export function createJournalUI(game) {
       if (!entries.length) {
         const empty = document.createElement('p');
         empty.className = 'quiet';
-        empty.textContent = kind === 'main' ? 'Nothing yet.' : 'Talk to people around the school to find side quests.';
+        empty.textContent = kind === 'main' ? 'Kol kas nieko.' : 'Kalbėkis su žmonėmis mokykloje – jie turi užduočių.';
         content.append(empty);
         continue;
       }
@@ -27,7 +27,7 @@ export function createJournalUI(game) {
         card.className = 'quest-card' + (quest.tracked ? ' tracked' : '') + (quest.status === 'done' ? ' done' : '');
         card.disabled = quest.status === 'done';
         const name = document.createElement('strong');
-        name.textContent = quest.title + (quest.status === 'done' ? ' · Complete' : quest.tracked ? ' · Tracking' : '');
+        name.textContent = quest.title + (quest.status === 'done' ? ' · Įvykdyta' : quest.tracked ? ' · Sekama' : '');
         const summary = document.createElement('span');
         summary.textContent = quest.summary;
         const steps = document.createElement('ol');

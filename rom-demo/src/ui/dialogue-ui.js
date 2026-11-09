@@ -18,8 +18,8 @@ export function createDialogueUI(game) {
     node.do?.(api);
     speaker.textContent = node.speaker ?? npc.def.name;
     line.textContent = pick(typeof node.text === 'function' ? node.text(api) : node.text) ?? '';
-    choices = (node.choices ?? [{text:'Continue', end:true}]).filter(choice => !choice.if || choice.if(api));
-    if (!choices.length) choices = [{text:'Goodbye', end:true}];
+    choices = (node.choices ?? [{text:'Tęsti', end:true}]).filter(choice => !choice.if || choice.if(api));
+    if (!choices.length) choices = [{text:'Iki', end:true}];
     list.replaceChildren(...choices.map((choice, index) => {
       const button = document.createElement('button');
       button.type = 'button';

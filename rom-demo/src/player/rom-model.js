@@ -102,6 +102,18 @@ export function buildRom(build, camera) {
     mesh(new T.ConeGeometry(.068,.30,10),flame,x,.84,-.22,exhaust).rotation.x=Math.PI;
   }
 
+  // School backpack (hidden while the jetpack is worn).
+  const backpack = new T.Group();
+  torso.add(backpack);
+  const bag = 0x2f5d8a, trim = 0x203f5e;
+  box(0,1.24,-.235,.3,.4,.15,bag,backpack);
+  box(0,1.45,-.235,.31,.05,.155,trim,backpack);
+  box(0,1.12,-.322,.22,.17,.05,trim,backpack);
+  box(0,1.2,-.35,.12,.012,.012,0xd9c46a,backpack);
+  for(const side of [-1,1]) {
+    box(side*.11,1.47,-.09,.045,.035,.2,trim,backpack);
+  }
+
   // Everything but the root lives in `rig` so emotes can spin the whole body.
   const rig = new T.Group();
   for(const part of [...player.children]) rig.add(part);
@@ -122,7 +134,7 @@ export function buildRom(build, camera) {
   gasCloud.visible = false; scene.add(gasCloud);
 
   return {
-    player, rig, torso, limbs, rightArm, held, drinkProp, jetRig, exhaust,
+    player, rig, torso, limbs, rightArm, held, drinkProp, jetRig, exhaust, backpack,
     firstHands, firstHeld, drops, gasCloud, cloudMaterial,
   };
 }

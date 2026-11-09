@@ -1,5 +1,8 @@
+import {emotes} from './emotes.js';
+
 /**
- * Walking, sprinting, jumping, landing, wall climbing and the jetpack.
+ * Walking, sprinting, jumping, landing, wall climbing, the jetpack, and
+ * standing up from chairs.
  */
 export function createMovement(game) {
   const {T, state, rom, collision, campus} = game;
@@ -8,6 +11,7 @@ export function createMovement(game) {
   const position = rom.player.position;
 
   function jump() {
+    if (state.seat) { game.seating.stand(); return; }
     if (state.climbing) { toggleClimb(); return; }
     if (state.airborne || state.emote || state.deathTime || state.stamina < 9) return;
     state.airborne = true; state.verticalSpeed = 6.4; state.stamina -= 9; state.recovery = .45;
@@ -17,7 +21,7 @@ export function createMovement(game) {
   function toggleClimb() {
     if (state.climbing) { state.climbing = null; state.airborne = true; state.verticalSpeed = 0; return; }
     const {x, y, z} = position;
-    if (collision.inside(x, z, y) || state.emote || state.pickupMotion || state.deathTime || state.stamina < 8) return;
+    if (collision.inside(x, z, y) || state.seat || state.emote || state.pickupMotion || state.deathTime || state.stamina < 8) return;
     let best = .95, grip = null;
     for (const b of campus.buildings) {
       if (y >= b.h + .10) continue;
@@ -29,11 +33,11 @@ export function createMovement(game) {
         grip = {b, px, pz, nx:dx / distance, nz:dz / distance};
       }
     }
-    if (!grip) { game.notice('Move closer to an exterior wall'); return; }
+    if (!grip) { game.notice('Prieik arčiau išorinės sienos'); return; }
     if (state.jetpack) setJetpack(false, true);
     state.climbing = grip; state.airborne = false; state.verticalSpeed = 0;
     rom.player.rotation.y = Math.atan2(-grip.nx, -grip.nz);
-    game.notice('Climbing · W / S to move · C to release');
+    game.notice('Lipi · W / S – aukštyn ir žemyn · C – paleisti');
   }
 
   function updateClimb(dt, vertical) {
@@ -46,7 +50,7 @@ export function createMovement(game) {
     }
     if (position.y >= b.h + .23) {
       position.set(px - nx * .55, b.h + .23, pz - nz * .55);
-      state.climbing = null; game.notice('Reached the roof');
+      state.climbing = null; game.notice('Užlipai ant stogo');
       game.bus.emit('player:climbed', {height:b.h});
     } else if ((vertical < 0 && position.y <= collision.groundAt(position.x, position.z)) || !state.stamina) {
       state.climbing = null; state.airborne = true; state.verticalSpeed = 0;
@@ -56,19 +60,32 @@ export function createMovement(game) {
   function setJetpack(on, silent = false) {
     state.jetpack = on;
     rom.jetRig.visible = on; rom.exhaust.visible = false;
+    rom.backpack.visible = !on;
     game.hud.setFlight(on);
-    if (!silent) game.notice(on ? 'Jetpack equipped · Hold jump to thrust' : 'Jetpack stowed');
+    if (!silent) game.notice(on ? 'Reaktyvinė kuprinė užsidėta · Laikyk šuolio klavišą' : 'Reaktyvinė kuprinė nusiimta');
   }
 
   function toggleJetpack() {
-    if (collision.inside(position.x, position.z, position.y) || state.climbing || state.emote || state.pickupMotion || state.deathTime) return;
-    if (!state.equipment.jetpack) { game.notice('Find the jetpack outdoors first'); return; }
+    if (collision.inside(position.x, position.z, position.y) || state.seat || state.climbing || state.emote || state.pickupMotion || state.deathTime) return;
+    if (!state.equipment.jetpack) { game.notice('Pirmiau surask reaktyvinę kuprinę lauke'); return; }
     setJetpack(!state.jetpack);
   }
 
   function update(dt, input) {
     const forward = input.axis('KeyW', 'ArrowUp', 'KeyS', 'ArrowDown');
     const strafe = input.axis('KeyD', 'ArrowRight', 'KeyA', 'ArrowLeft');
+    if (state.seat) {
+      // Seated: rest (stamina recovers faster) until Rom moves.
+      if (!forward && !strafe) {
+        state.moving = false; state.running = false; state.thrust = false; rom.exhaust.visible = false;
+        state.stamina = Math.min(100, state.stamina + 24 * dt);
+        if (state.stamina >= 22) state.exhausted = false;
+        return;
+      }
+      game.seating.stand();
+    }
+    // Walking interrupts long emotes such as dancing or push-ups.
+    if (state.emote && emotes[state.emote].cancelable && (forward || strafe)) game.animation.stopEmote();
     const thrust = state.jetpack && !state.climbing && !state.emote && !state.pickupMotion && !state.drinkMotion &&
       state.stamina > 0 && position.y < 32 && input.down('Space');
     state.thrust = thrust;
@@ -96,7 +113,7 @@ export function createMovement(game) {
         state.landingTime = Math.min(.32, .08 - state.verticalSpeed * .015);
         const impact = Math.max(0, -state.verticalSpeed - 8) * 8;
         state.airborne = false; state.verticalSpeed = 0; position.y = floor;
-        if (impact > 0) game.damage(impact, 'Hard landing');
+        if (impact > 0) game.damage(impact, 'Skaudus nusileidimas');
       }
     } else if (!state.climbing) position.y = floor;
 

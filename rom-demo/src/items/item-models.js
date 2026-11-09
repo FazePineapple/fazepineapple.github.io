@@ -71,6 +71,25 @@ export function createItemModels(build, items) {
       mesh(shared('item:label', () => new T.CylinderGeometry(.079,.079,.105,12)),0xd6b375,0,.136,0,parent);
       mesh(shared('item:cap', () => new T.CylinderGeometry(.039,.039,.031,12)),0xa8ac91,0,.37,0,parent);
     },
+    chair(parent) {
+      // School chair: seat top at 0.47 m, backrest on -z, faces +z.
+      box(0,.45,0,.44,.04,.42,0xb07a46,parent);
+      box(0,.73,-.2,.42,.3,.035,0xb07a46,parent);
+      for(const x of [-.19,.19]) for(const z of [-.18,.18]) box(x,.215,z,.03,.43,.03,0x3c4440,parent);
+      for(const x of [-.19,.19]) box(x,.62,-.2,.03,.36,.03,0x3c4440,parent);
+    },
+    straw(parent) {
+      mesh(shared('item:straw', () => new T.CylinderGeometry(.012,.012,.36,8)),0xe6eef0,0,.18,0,parent);
+      for(let i=0;i<4;i++)box(0,.04+i*.09,0,.026,.022,.026,0xd8454a,parent);
+      oval(parent,0xf4f1e6,.05,.03,.02,.03,.025,.03);
+    },
+    poop(parent) {
+      const brown=[0x5b3a1e,0x6b4425,0x54351b];
+      oval(parent,brown[0],0,.045,0,.12,.05,.12);
+      oval(parent,brown[1],0,.1,0,.085,.045,.085);
+      oval(parent,brown[2],0,.145,0,.05,.04,.05);
+      oval(parent,brown[1],.01,.18,0,.022,.03,.022);
+    },
     generic(parent) {
       box(0,.13,0,.26,.26,.26,0xc9b27a,parent);
       box(0,.262,0,.27,.012,.06,0x8b6f45,parent);

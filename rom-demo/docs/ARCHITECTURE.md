@@ -12,8 +12,8 @@ rom-demo/
     camera-rig.js    Follow / first-person / death / menu cameras
     core/            Event bus, seeded random, save slot, DOM helpers
     render/          Mesh/material builders, static batching, adaptive quality
-    world/           Campus, interior, sky, forest, collision, zones, school schedule
-    player/          Rom's model, state, movement, vitals, animation, item actions
+    world/           Campus, interior, sky, forest, collision, zones, school schedule (lessons, opening hours)
+    player/          Rom's model, state, movement, vitals, animation, emotes, seating, item actions
     items/           Inventory (pure), item models, held equipment, world pickups
     combat/          Practice bots
     npc/             Characters from content/characters.js

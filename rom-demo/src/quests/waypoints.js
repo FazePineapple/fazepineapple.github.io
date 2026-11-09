@@ -41,12 +41,12 @@ export function createWaypoints(game) {
     const here = collision.areaOf(player.x, player.z, player.y);
     const there = collision.areaOf(point.x, point.z, 0);
     if (here === there) return point;
-    if (here === 'outdoor') return {x:door.x, z:door.z + 3.1, y:2.2, label:'School entrance'};
+    if (here === 'outdoor') return {x:door.x, z:door.z + 3.1, y:2.2, label:'Mokyklos durys'};
     const floor = interior.floors[here];
     const goingUp = there !== 'outdoor' && there > here;
-    if (here === 0 && !goingUp) return {x:door.x, z:door.z - .9, y:2.2, label:'Exit'};
+    if (here === 0 && !goingUp) return {x:door.x, z:door.z - .9, y:2.2, label:'Išėjimas'};
     const stair = floor.stairs.find(entry => entry.direction === (goingUp ? 1 : -1));
-    return stair ? {x:stair.x, z:stair.z, y:(floor.baseY ?? 0) + 1.8, label:goingUp ? 'Stairs up' : 'Stairs down'} : point;
+    return stair ? {x:stair.x, z:stair.z, y:(floor.baseY ?? 0) + 1.8, label:goingUp ? 'Laiptai aukštyn' : 'Laiptai žemyn'} : point;
   }
 
   return {

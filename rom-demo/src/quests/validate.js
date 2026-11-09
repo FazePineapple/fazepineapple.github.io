@@ -10,8 +10,8 @@ export function validateContent({items, spawns, characters, dialogues, quests, z
 
   for (const [id, item] of Object.entries(items)) {
     if (!item.name) problems.push(`Item "${id}" has no name`);
-    if (item.use && !Array.isArray(item.use.effects)) problems.push(`Item "${id}" use.effects must be a list`);
-    if (item.weapon && !(item.weapon.damage >= 0 && item.weapon.range > 0)) problems.push(`Item "${id}" weapon needs damage and range`);
+    if (item.use && !item.use.action && !Array.isArray(item.use.effects)) problems.push(`Item "${id}" use.effects must be a list`);
+    if (item.weapon && !(item.weapon.damage >= 0 && (item.weapon.range > 0 || item.weapon.projectile))) problems.push(`Item "${id}" weapon needs damage and a range or projectile`);
   }
   const spawnIds = new Set();
   for (const spawn of spawns) {

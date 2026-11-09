@@ -21,7 +21,7 @@ export function createEquipment(game) {
       if (viewId) itemModels.build(viewId, rom.firstHeld);
     }
     rom.held.visible = !game.state.drinkMotion;
-    game.hud.setEquipped(heldId ? items[heldId].name : 'Fists');
+    game.hud.setEquipped(heldId ? items[heldId].name : 'Kumščiai');
     game.inventoryUI?.render();
   }
 

@@ -51,7 +51,7 @@
 @media(max-width:480px){.settings-options{grid-template-columns:1fr}}
 #flight{position:absolute;left:20px;bottom:214px;background:#142119e8;color:#d6fa87;padding:5px 8px;border-radius:4px;font:750 11px system-ui}
 .location #clock{margin-top:4px;font:800 15px ui-monospace,monospace;letter-spacing:.1em;color:#fff}
-.secondary-vitals{grid-template-columns:repeat(3,minmax(0,1fr))}#bowel::-webkit-meter-optimum-value{background:#cf9876}
+.secondary-vitals{grid-template-columns:repeat(4,minmax(0,1fr))}#bowel::-webkit-meter-optimum-value{background:#cf9876}
 @media(max-width:600px){#prompt{max-width:92vw;white-space:normal;text-align:center}}
 @media(pointer:fine){#quickbar{bottom:86px}}
 /* Story UI: objective tracker, toasts, waypoint, dialogue, journal, help hint */
@@ -93,3 +93,7 @@
 #profileDialog{max-width:min(36rem,90vw);max-height:80vh}
 
 @media(max-width:650px){#objective{top:92px;max-width:58vw;padding:6px 9px}#objective strong{font-size:12px}#toasts{top:auto;bottom:45%}}
+#objective #objectiveNote{color:#ffb38a;font-weight:700}
+#stomach::-webkit-meter-optimum-value,#stomach::-webkit-meter-suboptimum-value{background:#c9b35a}
+.emote-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:480px){.emote-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}

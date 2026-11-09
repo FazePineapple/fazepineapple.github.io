@@ -15,12 +15,14 @@ export function createPickups(game) {
   const previous = new T.Vector3(), heading = new T.Vector3();
   const UP = T.Object3D.DEFAULT_UP;
 
-  function spawn(id, x, z, {y = collision.groundAt(x, z), velocity = null, spawnId = null} = {}) {
+  function spawn(id, x, z, {y = collision.groundAt(x, z), velocity = null, spawnId = null, facing = null} = {}) {
     const model = new T.Group();
     scene.add(model); model.position.set(x, y, z);
+    if (facing !== null) model.rotation.y = facing;
     itemModels.build(id, model);
     const marker = new T.Mesh(markerShape, markerMaterial);
     marker.rotation.x = -Math.PI / 2;
+    if (items[id].sit) marker.scale.setScalar(1.8);
     marker.position.set(x, collision.groundAt(x, z) + .022, z);
     marker.visible = !velocity;
     scene.add(marker);
@@ -40,17 +42,17 @@ export function createPickups(game) {
       if (collected.has(entry.id) || !game.story.meets(entry.requires)) continue;
       if (list.some(pickup => pickup.spawnId === entry.id)) continue;
       const point = entry.floor === undefined ? entry : interior.floorPoint(entry.floor, entry.x, entry.z);
-      spawn(entry.item, point.x, point.z, {spawnId:entry.id});
+      spawn(entry.item, point.x, point.z, {spawnId:entry.id, facing:entry.facing ?? null});
     }
-    for (const [id, x, z] of saved?.dropped ?? []) {
-      if (items[id] && Number.isFinite(x) && Number.isFinite(z)) spawn(id, x, z);
+    for (const [id, x, z, facing = null] of saved?.dropped ?? []) {
+      if (items[id] && Number.isFinite(x) && Number.isFinite(z)) spawn(id, x, z, {facing});
     }
   }
 
-  function nearest(range = 2.25) {
+  function nearest(range = 2.25, accept = () => true) {
     let best = null;
     for (const pickup of list) {
-      if (pickup.delay > 0 || pickup.velocity) continue;
+      if (pickup.delay > 0 || pickup.velocity || pickup === state.seat?.pickup || !accept(pickup)) continue;
       const distance = pickup.model.position.distanceTo(rom.player.position);
       if (distance < range) { range = distance; best = pickup; }
     }
@@ -59,10 +61,11 @@ export function createPickups(game) {
 
   function pickUp(pickup = nearest()) {
     if (!pickup || state.pickupMotion || state.drinkMotion || state.emote || state.deathTime) return false;
+    if (pickup === state.seat?.pickup) game.seating.stand();
     const item = items[pickup.id];
     if (item.equipment) state.equipment[item.equipment] = true;
-    else if (!inventory.add(pickup.id)) { game.notice('Inventory full'); return false; }
-    game.notice(item.pickupMessage ?? 'Picked up ' + item.name);
+    else if (!inventory.add(pickup.id)) { game.notice('Kuprinė pilna'); return false; }
+    game.notice(item.pickupMessage ?? 'Paimta: ' + item.name);
     game.animation.startPickup(pickup.model);
     if (pickup.spawnId) collected.add(pickup.spawnId);
     remove(pickup);
@@ -83,9 +86,11 @@ export function createPickups(game) {
       if (collision.block(p.x, p.z + velocity.z * dt)) velocity.z *= -.35;
       previous.copy(p);
       p.addScaledVector(velocity, dt);
-      if (physics.damage && !pickup.hit && velocity.lengthSq() > 4 && game.combat.hitWithProp(previous, p, physics.damage)) {
+      const hit = physics.damage && !pickup.hit && velocity.lengthSq() > 4 &&
+        game.combat.hitWithProp(previous, p, physics.damage, {stink:physics.stink, radius:.18});
+      if (hit) {
         pickup.hit = true; velocity.multiplyScalar(-.24); velocity.y = Math.abs(velocity.y) + .6;
-        game.notice(items[pickup.id].name + ' hit a practice bot');
+        game.notice(items[pickup.id].name + ' · ' + hit.name + (hit.hp ? ' · ' + hit.hp + ' GY' : ' nugalėtas'));
       }
       if (physics.pointFirst) model.quaternion.setFromUnitVectors(UP, heading.copy(velocity).normalize());
       else { model.rotation.x += dt * 7; model.rotation.z += dt * 2; }
@@ -97,7 +102,8 @@ export function createPickups(game) {
         velocity.x *= .65; velocity.z *= .65;
       } else {
         pickup.velocity = null;
-        model.rotation.set(0, model.rotation.y, 0);
+        model.quaternion.identity();
+        model.rotation.set(0, Math.atan2(velocity.x, velocity.z) + (items[pickup.id].sit ? Math.PI : 0), 0);
         pickup.marker.position.set(p.x, floor + .022, p.z);
       }
     }
@@ -119,7 +125,7 @@ export function createPickups(game) {
     serialize:() => ({
       collected:[...collected],
       // Thrown or dropped items (untouched spawns are restored from content).
-      dropped:list.filter(pickup => !pickup.spawnId).map(({id, model:{position:p}}) => [id, +p.x.toFixed(2), +p.z.toFixed(2)]),
+      dropped:list.filter(pickup => !pickup.spawnId).map(({id, model}) => [id, +model.position.x.toFixed(2), +model.position.z.toFixed(2), +model.rotation.y.toFixed(2)]),
     }),
   };
 }

@@ -7,6 +7,7 @@
  * at (22, -2.5). Indoor floors are easiest to place with `floor`:
  *   {id:'library-book', item:'crate', floor:1, x:-10, z:-8}
  * where x/z are floor-plan coordinates (each floor spans -14..14).
+ * `facing` (radians) turns furniture such as chairs.
  *
  * Add `requires:{flag:'...'}` or `requires:{quest:'...'}` to make an item
  * appear only after story progress.
@@ -26,4 +27,8 @@ export const spawns = [
   {id:'juice-hill', item:'juice', x:8, z:10},
   {id:'bun-flag', item:'bun', x:-27, z:1},
   {id:'beer-hill', item:'beer', x:35, z:14},
+  {id:'straw-spawn', item:'straw', x:-5, z:20.5},
+  {id:'chair-courtyard', item:'chair', x:-7, z:24.5, facing:Math.PI},
+  {id:'chair-benches', item:'chair', x:-10.5, z:3, facing:0},
+  {id:'chair-classroom', item:'chair', floor:0, x:-11, z:3, facing:Math.PI / 2},
 ];

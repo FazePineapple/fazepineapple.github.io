@@ -47,15 +47,22 @@ export function createPanels(game) {
   };
 }
 
-/** Emote wheel (B). */
-export function createEmotesUI(game) {
+/** Emote menu (B), built from src/player/emotes.js. */
+export function createEmotesUI(game, emotes) {
   const element = $('emotes');
-  game.panels.register('emotes', {element});
-  for (const button of element.querySelectorAll('button')) {
+  const grid = element.querySelector('.emote-grid');
+  for (const [id, emote] of Object.entries(emotes)) {
+    if (emote.menu === false) continue;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = emote.label;
     button.onclick = () => {
       const atRestroom = game.interactions.nearest()?.id === 'restroom';
       game.panels.close();
-      if (button.dataset.emote) game.animation.startEmote(button.dataset.emote, {atRestroom});
+      game.animation.startEmote(id, {atRestroom});
     };
+    grid.append(button);
   }
+  game.panels.register('emotes', {element});
+  $('closeEmotes').onclick = () => game.panels.close();
 }

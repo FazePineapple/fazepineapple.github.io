@@ -1,5 +1,5 @@
 /**
- * ITEM CATALOGUE — add new items here.
+ * ITEM CATALOGUE — add new items here. Player-facing text is Lithuanian.
  *
  * Every key is an item id used by spawns, quests, dialogue and the save file,
  * so never rename an id that has shipped. Fields:
@@ -14,33 +14,39 @@
  *   equipment    Picked up into an equipment slot instead of the inventory
  *                (currently 'jetpack').
  *   pickupMessage  Optional custom message when picked up.
+ *   sit          {height} — furniture: E sits on it when it stands in the world.
  *
- *   use:     {verb, animation?:'drink', message, effects:[...]}
- *            Effects: {stamina:n} {health:n} {meter:'bladder'|'gas'|'bowel', add:n}
+ *   use:     {verb, animation?:'drink', action?:'sit', message, effects:[...]}
+ *            Effects: {stamina:n} {health:n} {meter:'bladder'|'gas'|'bowel'|'stomach', add:n}
  *                     {timer:'dizzy'|'gas'|'bladder', seconds:n}
- *   weapon:  {damage, range, aim, cooldown, ranged?, spray?}
+ *            Eating past a full stomach (100) makes Rom vomit.
+ *   weapon:  {damage, range, aim, cooldown, ranged?, spray?, projectile?}
  *            aim = minimum facing dot product (higher = must aim more precisely).
- *   throw:   {damage, speed?, lift?, gravity?, aimed?, pointFirst?}
+ *            projectile: {speed, gravity, size, color} fires a visible shot.
+ *   throw:   {damage, speed?, lift?, gravity?, pointFirst?, stink?}
+ *            Left click throws items that have `throw` but no `weapon` or `use`.
  */
 export const items = {
   jetpack: {
-    name:'Jetpack', icon:'🎒', equipment:'jetpack',
-    description:'Press J outdoors to equip. Hold jump to thrust.',
-    pickupMessage:'Jetpack found · Press J to equip',
+    name:'Reaktyvinė kuprinė', icon:'🚀', equipment:'jetpack',
+    description:'Lauke spausk J, kad užsidėtum. Laikyk šuolio klavišą, kad kiltum.',
+    pickupMessage:'Rasta reaktyvinė kuprinė · Spausk J, kad užsidėtum',
   },
-  tire: {name:'Tire', icon:'🛞', stack:1, throw:{damage:32}},
-  crate: {name:'Cardboard box', icon:'📦', stack:4, throw:{damage:18}},
+  tire: {name:'Padanga', icon:'🛞', stack:1, throw:{damage:32, speed:9}},
+  crate: {name:'Kartoninė dėžė', icon:'📦', stack:4, throw:{damage:18}},
   cinnamon: {
     name:'Suktukas', icon:'🥐', stack:16,
-    use:{verb:'Eat', message:'Suktukas eaten · Find the WC when needed', effects:[{meter:'bowel', add:55}]},
+    use:{verb:'Valgyti', message:'Suktukas suvalgytas · +15 gyvybės · Prireiks tualeto',
+      effects:[{health:15}, {meter:'bowel', add:55}, {meter:'stomach', add:30}]},
   },
   ruler: {
-    name:'Liniuote', icon:'📏', stack:1, description:'Metal ruler',
-    weapon:{damage:27, range:2.3, aim:.5, cooldown:.35},
-    throw:{damage:45, speed:18, lift:1.25, gravity:8, aimed:true, pointFirst:true},
+    name:'Liniuotė', icon:'📏', stack:1,
+    description:'Metalinė liniuotė. Kairysis pelės klavišas arba Q – mesti kaip peilį.',
+    throw:{damage:45, speed:20, lift:.6, gravity:5, pointFirst:true},
   },
   extinguisher: {
-    name:'Fire extinguisher', icon:'🧯', stack:1,
+    name:'Gesintuvas', icon:'🧯', stack:1,
+    description:'Laikyk kairįjį pelės klavišą, kad purkštum putas.',
     weapon:{damage:3, ranged:true, spray:true, range:6, aim:.9, cooldown:.24},
   },
   dagger: {
@@ -48,25 +54,42 @@ export const items = {
     weapon:{damage:100, range:2.7, aim:.42, cooldown:.55},
   },
   blaster: {
-    name:'Training blaster', icon:'🔫', stack:1,
+    name:'Treniruočių blasteris', icon:'🔫', stack:1,
     weapon:{damage:35, ranged:true, range:16, aim:.95, cooldown:.65},
   },
+  straw: {
+    name:'Šiaudelis', icon:'🥤', stack:1,
+    description:'Spjauk popieriaus kamuoliukais į priešus.',
+    weapon:{damage:12, cooldown:.45, projectile:{speed:26, gravity:3, size:.06, color:0xf4f1e6}},
+  },
+  chair: {
+    name:'Kėdė', icon:'🪑', stack:1, sit:{height:.47},
+    description:'Pastatyk ir atsisėsk arba mesk į priešą.',
+    use:{verb:'Pastatyti', action:'sit'},
+    throw:{damage:30, speed:9, lift:2.4},
+  },
+  poop: {
+    name:'Kakutis', icon:'💩', stack:16,
+    description:'Smirdi. Galima mesti į priešus.',
+    throw:{damage:15, stink:true},
+  },
   juice: {
-    name:'Small juice pack', icon:'🧃', stack:64,
-    use:{verb:'Drink', animation:'drink', message:'Juice finished · Find a restroom when the urge hits',
-      effects:[{timer:'bladder', seconds:50}, {meter:'bladder', add:38}]},
+    name:'Sulčių pakelis', icon:'🧃', stack:64,
+    use:{verb:'Gerti', animation:'drink', message:'Sultys išgertos · +5 gyvybės · Netrukus prireiks tualeto',
+      effects:[{health:5}, {timer:'bladder', seconds:50}, {meter:'bladder', add:38}, {meter:'stomach', add:12}]},
   },
   bun: {
-    name:'Sausage bun', icon:'🌭', stack:64,
-    use:{verb:'Eat', message:'Sausage bun eaten · +40 stamina',
-      effects:[{stamina:40}, {timer:'gas', seconds:36}, {meter:'gas', add:54}]},
+    name:'Bandelė su dešrele', icon:'🌭', stack:64,
+    use:{verb:'Valgyti', message:'Bandelė suvalgyta · +25 gyvybės · +40 ištvermės',
+      effects:[{health:25}, {stamina:40}, {timer:'gas', seconds:36}, {meter:'gas', add:54},
+        {meter:'bowel', add:20}, {meter:'stomach', add:35}]},
   },
   beer: {
-    name:'Beer bottle', icon:'🍺', stack:64,
-    use:{verb:'Drink', animation:'drink', message:'Beer finished · Feeling dizzy',
-      effects:[{timer:'dizzy', seconds:24}, {meter:'bladder', add:26}]},
+    name:'Alaus butelis', icon:'🍺', stack:64,
+    use:{verb:'Gerti', animation:'drink', message:'Alus išgertas · Svaigsta galva',
+      effects:[{timer:'dizzy', seconds:24}, {meter:'bladder', add:26}, {meter:'stomach', add:15}]},
   },
 };
 
-/** Default throw behaviour for items without their own `throw` block. */
-export const defaultThrow = {damage:8, speed:8.5, lift:3.2, gravity:14};
+/** Default throw for items without their own `throw` block: aimed where you look. */
+export const defaultThrow = {damage:8, speed:12, lift:2, gravity:12};

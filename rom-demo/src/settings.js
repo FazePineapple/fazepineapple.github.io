@@ -1,8 +1,8 @@
 const actions={
-  KeyW:'Forward', KeyA:'Move left', KeyS:'Back', KeyD:'Move right',
-  ShiftLeft:'Sprint', Space:'Jump', KeyE:'Interact', KeyF:'Use or equip',
-  KeyX:'Attack', KeyQ:'Throw', KeyI:'Inventory', KeyB:'Emotes', KeyL:'Quest journal',
-  KeyV:'Camera view', KeyN:'Day or night', KeyC:'Climb', KeyJ:'Jetpack', KeyR:'Get unstuck', KeyH:'Controls help',
+  KeyW:'Pirmyn', KeyA:'Į kairę', KeyS:'Atgal', KeyD:'Į dešinę',
+  ShiftLeft:'Bėgti', Space:'Šokti', KeyE:'Sąveika', KeyF:'Naudoti',
+  KeyX:'Veiksmas', KeyQ:'Mesti', KeyI:'Kuprinė', KeyB:'Emocijos', KeyL:'Užduočių žurnalas',
+  KeyV:'Kameros vaizdas', KeyN:'Diena / naktis', KeyC:'Lipti', KeyJ:'Reaktyvinė kuprinė', KeyR:'Grįžti į kiemą', KeyH:'Valdymo pagalba',
 };
 const storageKey='romgame.settings.v1';
 const defaults={volume:1,muted:false,sensitivity:1,invert:false,quality:'auto',bindings:{}};
@@ -40,7 +40,7 @@ function keyLabel(code) {
     Backquote:'`', Minus:'-', Equal:'=', BracketLeft:'[', BracketRight:']',
     Semicolon:';', Quote:"'", Comma:',', Period:'.', Slash:'/',
   };
-  return punctuation[code]??code.replace(/^Key/,'').replace(/^ShiftLeft$/,'Left Shift');
+  return punctuation[code]??code.replace(/^Key/,'').replace(/^ShiftLeft$/,'Kairysis Shift').replace(/^Space$/,'Tarpas');
 }
 
 export function createSettings(document,audio) {
@@ -74,7 +74,7 @@ export function createSettings(document,audio) {
 
   function render() {
     for(const [action,{button,label}] of buttons) {
-      button.textContent=label+' · '+(pending===action?'Press a key':keyLabel(binding(action)));
+      button.textContent=label+' · '+(pending===action?'Spausk klavišą':keyLabel(binding(action)));
       button.setAttribute('aria-pressed',String(pending===action));
     }
     for(const label of document.querySelectorAll('[data-binding]')) {
@@ -89,7 +89,7 @@ export function createSettings(document,audio) {
     notifyQuality();
     audio.setVolume(values.volume);
     audio.setMuted(values.muted);
-    byId('soundButton').textContent=values.muted?'Sound off':'Sound on';
+    byId('soundButton').textContent=values.muted?'Garsas išjungtas':'Garsas įjungtas';
   }
   function save() {
     try { localStorage.setItem(storageKey,JSON.stringify(values)); } catch { /* Keep current settings for this session. */ }
@@ -97,7 +97,7 @@ export function createSettings(document,audio) {
   }
   function show(open) {
     pending=null;
-    message.textContent='Choose an action, then press its new key. If that key is in use, the two actions swap.';
+    message.textContent='Pasirink veiksmą ir paspausk naują klavišą. Jei klavišas užimtas, veiksmai susikeis vietomis.';
     panel.hidden=!open;
     byId('menu').inert=open;
     (open?byId('closeSettings'):openButton).focus();
@@ -109,7 +109,7 @@ export function createSettings(document,audio) {
   byId('resetSettings').onclick=()=>{
     values={...defaults,bindings:{}};
     pending=null;
-    message.textContent='Default controls and sound restored.';
+    message.textContent='Atkurti numatytieji valdymo ir garso nustatymai.';
     save();
   };
   volume.oninput=()=>{values.volume=Number(volume.value)/100;save();};
@@ -128,14 +128,14 @@ export function createSettings(document,audio) {
     event.preventDefault();event.stopPropagation();
     if(event.repeat)return;
     if(!validKey(event.code)) {
-      message.textContent='Choose a letter, punctuation key, Space or left Shift.';
+      message.textContent='Rinkis raidę, skyrybos ženklą, tarpą arba kairįjį Shift.';
       return;
     }
     const previous=binding(pending);
     const occupied=Object.keys(actions).find(action=>binding(action)===event.code);
     if(occupied)values.bindings[occupied]=previous;
     values.bindings[pending]=event.code;
-    message.textContent=actions[pending]+' is now '+keyLabel(event.code)+'.';
+    message.textContent=actions[pending]+': dabar '+keyLabel(event.code)+'.';
     pending=null;
     save();
   },true);

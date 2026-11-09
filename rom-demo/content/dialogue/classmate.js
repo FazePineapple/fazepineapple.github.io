@@ -1,3 +1,4 @@
+/** Klasioko (classmate) dialogue. */
 export default {
   entry(api) {
     if (api.questStep('first-day') === 'meet-classmate') return 'hello';
@@ -8,28 +9,28 @@ export default {
     return 'idle';
   },
   nodes: {
-    early: {text:'Oh, hey Rom. Shouldn\'t you be outside with the caretaker?', choices:[{text:'Right.', end:true}]},
+    early: {text:'O, labas, Romai. Ar tu neturėtum būti lauke su kiemsargiu?', choices:[{text:'Tiesa.', end:true}]},
     hello: {
-      text:'Rom! You made it. I saw you through the window — nice work on that bot.',
-      choices:[{text:'Easy.', next:'hello-2'}],
+      text:'Romai! Atėjai. Mačiau pro langą – šauniai sutvarkei tą robotą.',
+      choices:[{text:'Vieni niekai.', next:'hello-2'}],
     },
     'hello-2': {
-      text:'Welcome back to Gedimino gimnazija. Something tells me this year is going to be weird.',
-      choices:[{text:'Weird how?', next:'hello-3'}],
+      text:'Sveikas sugrįžęs į Gedimino gimnaziją. Kažkas man sako, kad šie metai bus keisti.',
+      choices:[{text:'Kaip tai keisti?', next:'hello-3'}],
     },
     'hello-3': {
-      text:'You\'ll see. Come find me if you want a challenge.',
-      choices:[{text:'Later.', end:true}],
+      text:'Pamatysi. Užsuk, jei norėsi iššūkio.',
+      choices:[{text:'Vėliau.', end:true}],
     },
     challenge: {
-      text:'Bet you can\'t knock out five practice bots. Want to prove me wrong?',
+      text:'Lažinuosi, kad nepaguldysi penkių treniruočių robotų. Įrodysi, kad klystu?',
       choices:[
-        {text:'Watch me.', do:api => api.startQuest('bot-practice'), end:true},
-        {text:'Not now.', end:true},
+        {text:'Žiūrėk.', do:api => api.startQuest('bot-practice'), end:true},
+        {text:'Ne dabar.', end:true},
       ],
     },
-    practising: {text:'Still counting… go on!', choices:[{text:'Fine.', end:true}]},
-    won: {text:'Five? Seriously? Fine, you win. Here, have my juice.', choices:[{text:'Pleasure doing business.', end:true}]},
-    idle: {text:['Okay, okay, you win.', 'Did you hear the bell?'], choices:[{text:'Bye.', end:true}]},
+    practising: {text:'Dar skaičiuoju… pirmyn!', choices:[{text:'Gerai.', end:true}]},
+    won: {text:'Penki? Rimtai? Gerai jau, laimėjai. Še, imk mano sultis.', choices:[{text:'Malonu turėti reikalų.', end:true}]},
+    idle: {text:['Gerai, gerai, tu laimėjai.', 'Girdėjai skambutį?'], choices:[{text:'Iki.', end:true}]},
   },
 };

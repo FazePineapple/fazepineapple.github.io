@@ -12,6 +12,10 @@ export function createAudio() {
     foam:[['triangle',151,94,.48,.055],['sawtooth',72,58,.42,.018]],
     cough:[['sawtooth',180,87,.13,.085],['triangle',162,75,.16,.085,.18]],
     shot:[['sawtooth',170,45,.14,.11]],
+    spit:[['square',620,180,.07,.05],['triangle',300,120,.05,.04]],
+    clap:[['square',1400,900,.04,.07],['square',1300,800,.04,.07,.18],['square',1450,950,.04,.07,.36],['square',1350,850,.04,.07,.54]],
+    cry:[['triangle',440,330,.45,.07],['triangle',415,300,.5,.07,.55],['triangle',400,280,.6,.06,1.15]],
+    vomit:[['sawtooth',120,48,.7,.13],['sawtooth',95,40,.55,.1,.35]],
     questStart:[['triangle',523,523,.16,.08],['triangle',659,659,.22,.08,.12]],
     questComplete:[['triangle',523,523,.14,.08],['triangle',659,659,.14,.08,.11],['triangle',784,784,.32,.09,.22]],
   };

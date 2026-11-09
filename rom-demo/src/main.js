@@ -5,7 +5,7 @@ import {characters} from '../content/characters.js';
 import {dialogues} from '../content/dialogue/index.js';
 import {quests} from '../content/quests/index.js';
 import {zones} from '../content/zones.js';
-import {startHour} from '../content/schedule.js';
+import {startHour, minutesPerSecond} from '../content/schedule.js';
 import {$} from './core/dom.js';
 import {createEventBus} from './core/events.js';
 import {createRandom} from './core/random.js';
@@ -27,6 +27,8 @@ import {createMovement} from './player/movement.js';
 import {createVitals} from './player/vitals.js';
 import {createAnimation} from './player/animation.js';
 import {createActions} from './player/actions.js';
+import {createSeating} from './player/seating.js';
+import {emotes} from './player/emotes.js';
 import {createInventory} from './items/inventory.js';
 import {createItemModels} from './items/item-models.js';
 import {createEquipment} from './items/equipment.js';
@@ -85,6 +87,7 @@ export function boot() {
   settings.onQuality(mode => quality.setMode(mode));
   const sky = createSky(T, scene, sun, ambient);
   sky.setHour(startHour);
+  sky.setSpeed(minutesPerSecond);
 
   // World. Build order matters for the seeded layout: campus → Rom → interior.
   const build = createBuilders(T, scene, renderer, createRandom(134));
@@ -120,6 +123,7 @@ export function boot() {
   game.movement = createMovement(game);
   game.actions = createActions(game);
   game.pickups = createPickups(game);
+  game.seating = createSeating(game);
   game.zones = createZones(game);
   game.npcs = createNpcs(game);
   game.interactions = createInteractions(game);
@@ -129,7 +133,7 @@ export function boot() {
   game.schedule = createSchedule(game);
   game.cameraRig = createCameraRig(game);
   game.inventoryUI = createInventoryUI(game);
-  createEmotesUI(game);
+  createEmotesUI(game, emotes);
   game.dialogue = createDialogueUI(game);
   game.journal = createJournalUI(game);
   game.minimap = createMinimap(game);
@@ -143,7 +147,7 @@ export function boot() {
     if (state.deathTime || !(amount > 0)) return;
     state.health = Math.max(0, state.health - amount);
     if (!state.health) beginDeath();
-    else if (reason) game.notice(reason + ' · −' + Math.round(amount) + ' health');
+    else if (reason) game.notice(reason + ' · −' + Math.round(amount) + ' gyvybės');
   };
   function beginDeath() {
     if (state.deathTime) return;
@@ -158,6 +162,7 @@ export function boot() {
   }
   function placeAtSpawn() {
     state.climbing = null;
+    state.seat = null;
     movement.setJetpack(false, true);
     position.set(spawnPoint.x, spawnPoint.y, spawnPoint.z);
     rom.player.rotation.y = Math.PI;
@@ -184,7 +189,7 @@ export function boot() {
     if (state.deathTime) return;
     animation.reset();
     placeAtSpawn();
-    game.notice('Back at the courtyard');
+    game.notice('Grįžai į kiemą');
   };
 
   // Persistence.
@@ -220,14 +225,14 @@ export function boot() {
 
   // Story feedback.
   bus.on('quest:started', quest => {
-    hud.toast((quest.kind === 'main' ? 'New story mission · ' : 'New side quest · ') + quest.title, 'quest');
+    hud.toast((quest.kind === 'main' ? 'Nauja siužeto misija · ' : 'Nauja šalutinė užduotis · ') + quest.title, 'quest');
     audio.play('questStart');
   });
   bus.on('quest:progress', progress => {
-    hud.toast(progress.needed > 1 ? progress.title + ' · ' + progress.count + '/' + progress.needed : 'Objective · ' + progress.text, 'quest');
+    hud.toast(progress.needed > 1 ? progress.title + ' · ' + progress.count + '/' + progress.needed : 'Tikslas · ' + progress.text, 'quest');
   });
   bus.on('quest:completed', quest => {
-    hud.toast(quest.message ?? 'Quest complete · ' + quest.title, 'complete');
+    hud.toast(quest.message ?? 'Užduotis įvykdyta · ' + quest.title, 'complete');
     audio.play('questComplete');
   });
   const refreshWorld = () => { npcs.spawnAll(); pickups.spawnWorld(); };
@@ -275,7 +280,7 @@ export function boot() {
     $('hud').hidden = !value;
     if (value) {
       hud.flushToasts();
-      $('start').firstChild.textContent = 'Resume game ';
+      $('start').firstChild.textContent = 'Grįžti į žaidimą ';
     } else {
       if (document.pointerLockElement) document.exitPointerLock();
       $('start').focus();
@@ -283,7 +288,7 @@ export function boot() {
     }
   }
   game.setActive = setActive;
-  $('start').firstChild.textContent = saved ? 'Continue ' : 'Start game ';
+  $('start').firstChild.textContent = saved ? 'Tęsti ' : 'Pradėti žaidimą ';
   $('newGame').hidden = !saved;
   $('start').onclick = event => {
     setActive(true);
@@ -294,7 +299,7 @@ export function boot() {
     }
   };
   $('newGame').onclick = () => {
-    if (!confirm('Start a new game? Saved progress on this device will be erased.')) return;
+    if (!confirm('Pradėti naują žaidimą? Šiame įrenginyje išsaugota pažanga bus ištrinta.')) return;
     resetting = true;
     save.clear();
     location.reload();
@@ -324,11 +329,29 @@ export function boot() {
   window.addEventListener('resize', resize);
   resize();
 
+  let lockedNoticeTime = 0;
   function updateDoors(dt) {
     const door = campus.door;
     const near = Math.abs(position.x - door.x) < 2.25 && Math.abs(position.z - door.z) < 2.45 && position.y < 2.8;
-    door.opening = T.MathUtils.lerp(door.opening, (near || combat.atDoor(door.x, door.z)) ? 1 : 0, 1 - Math.exp(-dt * 9));
+    // At night the door stays shut from outside; from inside it still lets Rom out.
+    const lockedOut = !game.schedule.isSchoolOpen() && position.z > door.z;
+    lockedNoticeTime = Math.max(0, lockedNoticeTime - dt);
+    if (near && lockedOut && !lockedNoticeTime) {
+      game.notice('Mokykla uždaryta · Atsidaro ' + game.schedule.opensAt);
+      lockedNoticeTime = 3;
+    }
+    const opens = (near && !lockedOut) || (!lockedOut && combat.atDoor(door.x, door.z));
+    door.opening = T.MathUtils.lerp(door.opening, opens ? 1 : 0, 1 - Math.exp(-dt * 9));
     for (const {hinge, side} of door.leaves) hinge.rotation.y = -side * door.opening * Math.PI * .51;
+  }
+
+  /** The tracked objective for the HUD, with a note when the school is closed. */
+  function describeObjective() {
+    const objective = game.quests.objective();
+    if (!objective || game.schedule.isSchoolOpen()) return objective;
+    const target = objective.target ?? {};
+    const needsSchool = (target.npc && !npcs.isPresent(target.npc)) || target.zone || target.point?.floor !== undefined;
+    return needsSchool ? {...objective, note:'Naktį mokykla uždaryta · Grįžk ' + game.schedule.opensAt} : objective;
   }
 
   /** Renders only the part of the world Rom (or the camera) can see. */
@@ -353,17 +376,17 @@ export function boot() {
     const frame = (now - last) / 1000;
     last = now;
     quality.update(frame);
-    const dt = Math.min(frame, .045);
+    const dt = Math.min(Math.max(frame, 0), .045);
     const unpaused = game.active && !panels.isOpen();
 
     if (game.active && state.deathTime) {
       state.deathTime += dt;
       cameraRig.updateDeath();
-      if (state.deathTime >= 3.1) { respawn(); game.notice('Back at the courtyard'); }
+      if (state.deathTime >= 3.1) { respawn(); game.notice('Grįžai į kiemą'); }
     } else if (unpaused) {
       updateDoors(dt);
       movement.update(dt, input);
-      combat.update(dt, rom.player, amount => game.damage(amount, 'Practice bot hit'));
+      combat.update(dt, rom.player, amount => game.damage(amount, 'Robotas smogė'));
       actions.update(dt, input.sprayHeld);
       vitals.update(dt);
       hud.updateVitals(state);
@@ -381,7 +404,7 @@ export function boot() {
       npcs.update(dt);
       game.zones.update(position);
       pollClock += dt;
-      if (pollClock > .5) { pollClock = 0; game.quests.poll(); }
+      if (pollClock > .5) { pollClock = 0; game.quests.poll(); questsChanged = true; }
       const action = game.interactions.nearest();
       hud.updatePrompt(dt, action && settings.label('KeyE') + ' · ' + action.label);
       const waypoint = game.waypoints.current();
@@ -395,7 +418,7 @@ export function boot() {
 
     if (questsChanged) {
       questsChanged = false;
-      hud.setObjective(game.quests.objective());
+      hud.setObjective(describeObjective());
       if (panels.isOpen('journal')) game.journal.render();
     }
     const cameraIndoors = updateVisibility();

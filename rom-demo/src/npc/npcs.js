@@ -20,8 +20,17 @@ export function createNpcs(game) {
     model.root.rotation.y = spot.facing ?? 0;
     scene.add(model.root);
     const actor = {x:point.x, z:point.z, y, radius:.45};
-    const npc = {id, def, model, actor, facing:spot.facing ?? 0, phase:Math.random() * 6, removeActor:collision.addActor(actor)};
+    const npc = {id, def, model, actor, facing:spot.facing ?? 0, phase:Math.random() * 6, present:true, removeActor:collision.addActor(actor)};
     npcs.set(id, npc);
+    applySchedule(npc);
+  }
+
+  /** Characters with hours:'school' (the default) are only around while the school is open. */
+  function applySchedule(npc) {
+    const hours = npc.def.hours ?? 'school';
+    npc.present = hours === 'always' || game.schedule.isSchoolOpen();
+    npc.actor.solid = npc.present;
+    if (!npc.present) npc.model.root.visible = false;
   }
 
   function spawnAll() {
@@ -49,14 +58,14 @@ export function createNpcs(game) {
   function updateVisibility(isVisible) {
     for (const npc of npcs.values()) {
       const p = npc.model.root.position;
-      npc.model.root.visible = isVisible(p.x, p.z, p.y);
+      npc.model.root.visible = npc.present && isVisible(p.x, p.z, p.y);
     }
   }
 
   function nearest(range = 2.4) {
     let best = null;
     for (const npc of npcs.values()) {
-      if (!npc.def.dialogue || !npc.model.root.visible) continue;
+      if (!npc.def.dialogue || !npc.present || !npc.model.root.visible) continue;
       const distance = npc.model.root.position.distanceTo(rom.player.position);
       if (distance < range) { range = distance; best = npc; }
     }
@@ -66,7 +75,10 @@ export function createNpcs(game) {
   return {
     spawnAll, update, updateVisibility, nearest,
     get:id => npcs.get(id),
-    position:id => npcs.get(id)?.model.root.position ?? null,
+    isPresent:id => Boolean(npcs.get(id)?.present),
+    refreshSchedule() { for (const npc of npcs.values()) applySchedule(npc); },
+    /** Where the character stands, or null when they are not around (e.g. at night). */
+    position:id => (npcs.get(id)?.present ? npcs.get(id).model.root.position : null),
     all:() => [...npcs.values()],
   };
 }

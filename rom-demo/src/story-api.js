@@ -17,7 +17,7 @@ export function createStoryApi(game) {
     count:id => game.inventory.count(id),
     give(id, amount = 1) {
       const added = game.inventory.give(id, amount);
-      if (added < amount) game.notice('Inventory full');
+      if (added < amount) game.notice('Kuprinė pilna');
       if (added) { game.equipment.refresh(); game.bus.emit('item:received', {id, count:added}); }
       return added;
     },

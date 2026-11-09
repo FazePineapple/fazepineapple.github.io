@@ -2,6 +2,8 @@
 
 Story missions, side quests, items and characters are **data files** in
 `rom-demo/content/`. You should rarely need to touch `src/` to add content.
+**All player-facing text is Lithuanian** (names, dialogue, quest text,
+messages); ids and code comments stay in English.
 After any change run `npm run check` in `rom-demo/` (tests + build); the
 content test fails with a clear message if an id is misspelled.
 
@@ -13,7 +15,8 @@ content test fails with a clear message if an id is misspelled.
 | What a character says     | a file in `content/dialogue/`, listed in `content/dialogue/index.js` |
 | A story chapter or side quest | a file in `content/quests/`, listed in `content/quests/index.js` |
 | A named place (for the HUD and quests) | `content/zones.js`        |
-| Lesson times              | `content/schedule.js`                  |
+| Lesson times, school opening hours, clock speed | `content/schedule.js` |
+| An emote                  | `src/player/emotes.js` (label, duration, pose; the menu is generated) |
 
 Ids (item, quest, step, character, spawn) are stored in players' saves.
 **Never rename an id after it has shipped** — add a new one instead.
@@ -116,6 +119,9 @@ Main story chapters are just quests with `kind:'main'`; chain them with
 | `player:jump`, `player:died`, `player:respawned`, `player:restroom` | `{}` |
 | `player:climbed`   | `{height}` on reaching a roof            |
 | `player:emote`     | `{name, atRestroom}`                     |
+| `player:sat` / `player:stood` | `{item}` / `{}` — chairs        |
+| `player:pooped` / `player:vomited` | `{}`                      |
+| `school:opened` / `school:closed` | `{}` at opening hours        |
 | `player:moved`     | `{distance, running}` every frame Rom walks |
 | `time:minute`      | `{minute}` in-game minute of the day     |
 | `school:bell`      | `{lesson, starts}`                       |
@@ -137,3 +143,20 @@ Quest hooks, `when` checks and dialogue receive `api`
 
 Characters and spawns can take `requires:{flag}`, `{quest}` (started or done)
 or `{questDone}` to appear only after story progress.
+
+Characters go home at night by default (`hours:'school'`, using
+`schoolHours` in `content/schedule.js`), so quests that need them wait until
+morning; the HUD tells the player. Use `hours:'always'` for someone who is
+always around.
+
+## Item recipes
+
+- **Food/drink**: `use:{verb, message, effects:[…]}`. Add `{health:n}` to heal and
+  `{meter:'stomach', add:n}` for fullness (over 100 → Rom vomits).
+- **Throwable**: `throw:{damage, speed, lift, gravity, pointFirst, stink}`.
+  Items with `throw` and no `weapon`/`use` are thrown with the left mouse
+  button (like Liniuotė). Throws get light aim assist toward bots.
+- **Projectile weapon** (like the straw): `weapon:{damage, cooldown,
+  projectile:{speed, gravity, size, color}}`.
+- **Furniture** (like the chair): `sit:{height}` plus `use:{verb, action:'sit'}`.
+  E sits on it in the world; F/left click places it from the backpack.

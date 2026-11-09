@@ -1,5 +1,5 @@
 /**
- * Dialogue for the caretaker. See content/dialogue/index.js for the format.
+ * Kiemsargio (caretaker) dialogue. See content/dialogue/index.js for the format.
  * `entry` picks the opening node from the current story state.
  */
 export default {
@@ -12,39 +12,39 @@ export default {
   },
   nodes: {
     welcome: {
-      text:'Rom! Lessons start soon, and the practice bots are loose in the courtyard again.',
-      choices:[{text:'What do you need?', next:'welcome-2'}],
+      text:'Romai! Tuoj prasidės pamokos, o kieme vėl laksto treniruočių robotai.',
+      choices:[{text:'Ko tau reikia?', next:'welcome-2'}],
     },
     'welcome-2': {
-      text:'Grab Liniuote, the metal ruler by the benches, and show one of those bots who is boss. Then get inside.',
-      choices:[{text:'On it.', end:true}],
+      text:'Pasiimk Liniuotę – metalinę liniuotę prie suoliukų – ir parodyk vienam robotui, kas čia šeimininkas. Paskui eik vidun.',
+      choices:[{text:'Jau einu.', end:true}],
     },
     busy: {
-      text:['Ruler first, bots second, school third.', 'The door opens when you walk up to it.'],
-      choices:[{text:'Got it.', end:true}],
+      text:['Pirma liniuotė, tada robotai, tada mokykla.', 'Durys atsidaro pačios, kai prieini.'],
+      choices:[{text:'Supratau.', end:true}],
     },
     thirsty: {
-      text:'Phew, sweeping this courtyard is thirsty work. Could you find me a juice pack?',
+      text:'Uf, šluoti tokį kiemą – ištroškini. Gal surastum man sulčių pakelį?',
       choices:[
-        {text:'Sure, I will find one.', do:api => api.startQuest('thirsty-caretaker'), end:true},
-        {text:'Maybe later.', end:true},
+        {text:'Žinoma, surasiu.', do:api => api.startQuest('thirsty-caretaker'), end:true},
+        {text:'Gal vėliau.', end:true},
       ],
     },
     waiting: {
-      text:'Any luck with that juice?',
+      text:'Na kaip, radai sulčių?',
       choices:[
-        {text:'Here you go.', if:api => api.has('juice'), next:'thanks',
+        {text:'Prašom.', if:api => api.has('juice'), next:'thanks',
           do:api => { api.take('juice'); api.emit('story:delivered', {item:'juice', npc:'caretaker'}); }},
-        {text:'Not yet.', end:true},
+        {text:'Dar ne.', end:true},
       ],
     },
     thanks: {
-      text:'Lifesaver! Take this suktukas — fresh from the canteen.',
-      choices:[{text:'Thanks!', end:true}],
+      text:'Išgelbėjai! Imk suktuką – ką tik iš valgyklos.',
+      choices:[{text:'Ačiū!', end:true}],
     },
     idle: {
-      text:['Mind the flower beds.', 'Those bots never learn.', 'Have you tried the roof? Do not tell anyone I said that.'],
-      choices:[{text:'See you.', end:true}],
+      text:['Saugok gėlynus.', 'Tie robotai niekada nepasimoko.', 'Ar jau buvai ant stogo? Tik niekam nesakyk, kad aš pasakiau.'],
+      choices:[{text:'Iki.', end:true}],
     },
   },
 };

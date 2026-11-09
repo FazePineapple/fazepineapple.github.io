@@ -6,11 +6,11 @@ import {$, setText, setHidden, setValue} from '../core/dom.js';
  */
 export function createHud(game) {
   const el = {
-    health:$('health'), stamina:$('stamina'), bladder:$('bladder'), gas:$('gas'), bowel:$('bowel'),
-    hpValue:$('hpValue'), spValue:$('spValue'), bladderValue:$('bladderValue'), gasValue:$('gasValue'), bowelValue:$('bowelValue'),
+    health:$('health'), stamina:$('stamina'), bladder:$('bladder'), gas:$('gas'), bowel:$('bowel'), stomach:$('stomach'),
+    hpValue:$('hpValue'), spValue:$('spValue'), bladderValue:$('bladderValue'), gasValue:$('gasValue'), bowelValue:$('bowelValue'), stomachValue:$('stomachValue'),
     prompt:$('prompt'), effects:$('effects'), flight:$('flight'), zone:$('zone'), clock:$('clock'),
     equipped:$('equipped'), reticle:$('reticle'), toasts:$('toasts'),
-    objective:$('objective'), objectiveKind:$('objectiveKind'), objectiveTitle:$('objectiveTitle'), objectiveText:$('objectiveText'),
+    objective:$('objective'), objectiveKind:$('objectiveKind'), objectiveTitle:$('objectiveTitle'), objectiveText:$('objectiveText'), objectiveNote:$('objectiveNote'),
     waypoint:$('waypoint'), waypointLabel:$('waypointLabel'),
   };
   let message = '', messageTime = 0;
@@ -47,6 +47,7 @@ export function createHud(game) {
       meter(el.bladder, el.bladderValue, state.meters.bladder);
       meter(el.gas, el.gasValue, state.meters.gas);
       meter(el.bowel, el.bowelValue, state.meters.bowel);
+      meter(el.stomach, el.stomachValue, Math.min(100, state.meters.stomach));
     },
     updatePrompt(dt, actionLabel) {
       messageTime = Math.max(0, messageTime - dt);
@@ -69,10 +70,12 @@ export function createHud(game) {
     setObjective(objective) {
       setHidden(el.objective, !objective);
       if (!objective) return;
-      setText(el.objectiveKind, objective.kind === 'main' ? 'MAIN STORY' : 'SIDE QUEST');
+      setText(el.objectiveKind, objective.kind === 'main' ? 'SIUŽETAS' : 'ŠALUTINĖ UŽDUOTIS');
       setText(el.objectiveTitle, objective.title);
       setText(el.objectiveText, objective.text + (objective.needed > 1 ? ' (' + objective.count + '/' + objective.needed + ')' : ''));
       el.objective.classList.toggle('side', objective.kind !== 'main');
+      setText(el.objectiveNote, objective.note ?? '');
+      setHidden(el.objectiveNote, !objective.note);
     },
     /** Screen-space waypoint diamond; x/y in percent, clamped to the edges. */
     setWaypoint(point) {

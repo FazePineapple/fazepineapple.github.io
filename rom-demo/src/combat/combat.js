@@ -82,6 +82,11 @@ export function createCombat({T, scene, box, oval, groundAt, blocked, playSound=
       for(const bot of bots)bot.model.visible=bot.hp>0 && (bot.model.position.z< -2.5 && bot.student?lobby:outdoors);
     },
     setLesson(active){lesson=active;},
+    /** Live, visible bots as aim targets: {x, y (body centre), z}. */
+    targets(){
+      return bots.filter(bot=>bot.hp && bot.model.visible)
+        .map(({model:{position:p},profile})=>({x:p.x,y:p.y+.9*profile.scale,z:p.z}));
+    },
     atDoor(x,z){return bots.some(bot=>bot.student && bot.hp && Math.hypot(bot.model.position.x-x,bot.model.position.z-z)<2.3);},
     spray(position,heading,weapon) {
       let hits=0;
@@ -99,21 +104,28 @@ export function createCombat({T, scene, box, oval, groundAt, blocked, playSound=
       }
       return hits;
     },
-    hitWithProp(from,to,damage) {
-      delta.copy(to).sub(from);
-      const length=delta.lengthSq();
-      const bot=bots.find(({hp,model,profile})=>{
-        if(!hp)return false;
-        forward.copy(model.position);forward.y+=.72*profile.scale;
-        forward.sub(from);
-        const along=length?T.MathUtils.clamp(forward.dot(delta)/length,0,1):0;
-        forward.addScaledVector(delta,-along);
-        return Math.abs(forward.y)<.75*profile.scale && Math.hypot(forward.x,forward.z)<.55*profile.scale;
-      });
-      if(!bot)return false;
-      damageBot(bot,damage,'botHit','throw');
-      if(bot.hp)bot.alert=7;
-      return true;
+    /**
+     * Hits the first bot whose body (a capsule from its feet to the top of
+     * its head) the segment from→to passes through. Returns the bot's
+     * name and remaining HP, or null. `options.stink` makes it cough.
+     */
+    hitWithProp(from,to,damage,{source='throw',stink=false,radius=.12}={}) {
+      for(const bot of bots) {
+        if(!bot.hp)continue;
+        const base=bot.model.position, scale=bot.profile.scale;
+        const reach=.42*scale+radius, top=base.y+1.95*scale, bottom=base.y-.05;
+        // Sample the segment so fast props cannot tunnel through.
+        for(let i=0;i<=4;i++) {
+          const t=i/4;
+          const x=from.x+(to.x-from.x)*t, y=from.y+(to.y-from.y)*t, z=from.z+(to.z-from.z)*t;
+          if(y<bottom||y>top||Math.hypot(x-base.x,z-base.z)>reach)continue;
+          damageBot(bot,damage,stink?'cough':'botHit',source);
+          if(stink){bot.gas=2.4;bot.gasTick=.6;}
+          if(bot.hp)bot.alert=7;
+          return {name:bot.name,hp:bot.hp};
+        }
+      }
+      return null;
     },
     nearbyReaction(position,type) {
       let count=0;
@@ -212,10 +224,10 @@ export function createCombat({T, scene, box, oval, groundAt, blocked, playSound=
         tracer.material.color.setHex(weapon.foam?0xe4f5ff:0xffe798);
         tracerTime=.12;tracer.visible=true;tracer.material.opacity=1;
       }
-      if(!target)return 'Miss';
+      if(!target)return 'Nepataikė';
       damageBot(target,weapon.damage,'botHit',weapon.ranged?'shot':'melee');
-      if(target.hp){target.alert=7;return target.name+' · '+target.hp+' HP';}
-      return target.name+' defeated';
+      if(target.hp){target.alert=7;return target.name+' · '+target.hp+' GY';}
+      return target.name+' nugalėtas';
     }
   };
 }

@@ -31,8 +31,8 @@ export function createInventoryUI(game) {
       const button = group.children[index - start];
       const slot = inventory.slots[index];
       const item = slot && items[slot.id];
-      const description = slot ? item.name + ' × ' + slot.count : 'Empty';
-      button.setAttribute('aria-label', 'Slot ' + (index + 1) + ': ' + description);
+      const description = slot ? item.name + ' × ' + slot.count : 'Tuščia';
+      button.setAttribute('aria-label', 'Langelis ' + (index + 1) + ': ' + description);
       button.title = item?.description ? description + ' · ' + item.description : description;
       button.classList.toggle('selected', group === hotbarElement ? index === hotbar.selected : index === hotbar.grabbed);
       button.textContent = item ? item.icon ?? '❔' : '';
@@ -46,12 +46,12 @@ export function createInventoryUI(game) {
     const index = hotbar.grabbed ?? hotbar.selected;
     const slot = inventory.slots[index];
     const item = slot && items[slot.id];
-    if (hotbar.grabbed !== null && slot) details.textContent = item.name + ' × ' + slot.count + ' · Choose a destination slot.';
+    if (hotbar.grabbed !== null && slot) details.textContent = item.name + ' × ' + slot.count + ' · Pasirink, kur padėti.';
     else if (item?.description) details.textContent = item.description;
-    else details.textContent = 'Select an item, then click a slot to move or stack it.';
+    else details.textContent = 'Pasirink daiktą, tada spustelk langelį, kad jį perkeltum ar sudėtum į krūvą.';
     throwButton.disabled = !slot || Boolean(item?.questItem);
     useButton.disabled = !slot || (item.weapon ? index >= 9 : !item.use);
-    useButton.textContent = item?.weapon ? 'Hold in hand' : (item?.use?.verb ?? 'Use') + ' one';
+    useButton.textContent = item?.weapon ? 'Laikyti rankoje' : (item?.use?.verb ?? 'Naudoti');
   }
 
   game.panels.register('inventory', {
