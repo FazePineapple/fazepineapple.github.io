@@ -2,6 +2,8 @@ import {createBotAppearance} from './bot-appearance.js';
 
 export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=()=>{}, onDefeat=()=>{}) {
   const bots=[];
+  const courtyard=new T.Group();
+  scene.add(courtyard);
   const tracerGeometry=new T.BufferGeometry();
   tracerGeometry.setAttribute('position',new T.BufferAttribute(new Float32Array(6),3));
   const tracer=new T.Line(tracerGeometry,new T.LineBasicMaterial({color:0xffe798,transparent:true}));
@@ -26,7 +28,7 @@ export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=(
   const homes=[[-1,27],[12,26],[31,21]];
   for(const [x,z] of homes) {
     const model=new T.Group();
-    scene.add(model);
+    courtyard.add(model);
     model.position.set(x,groundAt(x,z),z);
     box(0,1.01,0,.54,.72,.39,0x854c42,model);
     oval(model,0x3c4443,0,1.56,0,.27,.23,.22);
@@ -60,6 +62,7 @@ export function createCombat(T, scene, box, oval, groundAt, blocked, playSound=(
     bot.model.visible=false;bot.respawn=15;bot.alert=0;bot.gas=0;
   }
   return {
+    setCourtyardVisible(visible){courtyard.visible=visible;},
     nearbyReaction(position,type) {
       let count=0;
       const range=type==='gas'?3:8;

@@ -127,8 +127,9 @@ export function buildInterior(T, scene, box, surface, texture, entrance) {
   for(const part of walls){part.x=worldX(part.x);part.z=worldZ(part.z);part.w*=entrance.scaleX;part.d*=entrance.scaleZ;if(part.bottom!==undefined)part.bottom+=entrance.y;if(part.top!==undefined)part.top+=entrance.y;}
   for(const light of lights){light.x=worldX(light.x);light.z=worldZ(light.z);light.y+=entrance.y;}
   for(const stair of floors[0].stairs){stair.x=worldX(stair.x);stair.z=worldZ(stair.z);}
-  Object.assign(floors[0],{origin:entrance.x,mapX:x=>(x-entrance.x)/entrance.scaleX,mapZ:z=>(z-centerZ)/entrance.scaleZ,spawnZ:worldZ(-6.2),baseY:entrance.y});
+  Object.assign(floors[0],{chunk:lobby,origin:entrance.x,mapX:x=>(x-entrance.x)/entrance.scaleX,mapZ:z=>(z-centerZ)/entrance.scaleZ,spawnZ:worldZ(-6.2),baseY:entrance.y});
   for(let index=1;index<3;index++) {
+    const firstNode=scene.children.length;
     const base=origin+index*spacing;
     const floor={origin:base,walls:[],stairs:[],lights:[]};
     floors.push(floor);
@@ -182,6 +183,9 @@ export function buildInterior(T, scene, box, surface, texture, entrance) {
       box(base-9.2+i*.94,1.95,-13.82,.69,.73,.055,0x806249);
       box(base-9.2+i*.94,1.95,-13.78,.56,.6,.026,[0x9ab4aa,0xdda276,0xb8a276][i%3]);
     }
+    const chunk=new T.Group();
+    for(const node of scene.children.slice(firstNode))chunk.add(node);
+    scene.add(chunk);floor.chunk=chunk;
   }
   const floorAt=x=>floors[Math.max(0,Math.min(floors.length-1,x<200?0:Math.round((x-origin)/spacing)))];
   function stairHeight(x,z) {

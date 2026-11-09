@@ -35,6 +35,7 @@ function boot() {
   sun.shadow.normalBias = .035;
   scene.add(sun);
   const sky=createSky(T,scene,sun,ambient);
+  const sceneGlobals=new Set(scene.children);
 
   const material = color => new T.MeshStandardMaterial({color, roughness:.94});
   const palette = new Map();
@@ -350,6 +351,11 @@ function boot() {
   mesh(new T.CylinderGeometry(.17,.25,1.46,7),0x785339,18,1.28,.15);
   box(18,2.04,.15,.27,.39,.26,0x8d6648);
 
+  const exteriorChunk=new T.Group();
+  for(const node of [...scene.children]) {
+    if(!sceneGlobals.has(node) && !node.isLight)exteriorChunk.add(node);
+  }
+  scene.add(exteriorChunk);
   const player=new T.Group(); scene.add(player);
   const denim=surface('#3b4d60',['#536479','#374b60','#405367'],2), jeans=surface('#455159',['#52636b','#3d4b53','#4a5963'],2), skin=0xb68369;
   const ellipsoid=new T.SphereGeometry(1,16,12);
@@ -1178,7 +1184,22 @@ function boot() {
       camera.position.set(-31+Math.sin(now*.00016)*3,7.2,36);
       camera.lookAt(0,4,-13);
     }
-    sky.update(dt,camera,!inside(camera.position.x,camera.position.z,camera.position.y),active&&!packOpen&&!emoteOpen);
+    const {x,y,z}=player.position;
+    const indoor=active && inside(x,z,y);
+    const nearDoor=active && y<4 && Math.abs(x-schoolDoor.x)<3 && Math.abs(z-schoolDoor.z)<3;
+    const cameraIndoors=inside(camera.position.x,camera.position.z,camera.position.y);
+    // Keep both chunks visible through the doorway and until the follow camera clears it.
+    exteriorChunk.visible=!indoor || (x<200 && (nearDoor || !cameraIndoors));
+    const visibleFloor=indoor?interior.floorAt(x):null;
+    for(const floor of interior.floors)floor.chunk.visible=floor===visibleFloor || (floor===interior.floors[0] && nearDoor);
+    combat.setCourtyardVisible(exteriorChunk.visible);
+    for(const {model,marker,velocity} of pickups) {
+      const p=model.position;
+      model.visible=inside(p.x,p.z,p.y)
+        ? interior.floorAt(p.x).chunk.visible : exteriorChunk.visible;
+      marker.visible=model.visible && !velocity;
+    }
+    sky.update(dt,camera,exteriorChunk.visible&&!cameraIndoors,active&&!packOpen&&!emoteOpen);
     renderer.render(scene,camera);
   });
 }
