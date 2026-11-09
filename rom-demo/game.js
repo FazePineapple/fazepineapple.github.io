@@ -118,10 +118,11 @@ function boot() {
   const paving = surface('#b1ad9f',['#aaa99d','#bbb7aa','#a29f92'],9,true);
   const asphalt = surface('#62696a',['#737879','#626868','#585f60'],12);
   box(0,-.17,0,240,.3,240,grass).castShadow=false;
-  box(-6,-.035,3,57,.09,33,paving).castShadow=false;
+  box(-9.25,-.035,-8,50.5,.09,11,paving).castShadow=false;
+  box(-6,-.035,8.5,57,.09,22,paving).castShadow=false;
   box(-44,-.04,20,17,.08,108,asphalt).castShadow=false;
   box(-25,-.025,22,35,.08,9,asphalt).castShadow=false;
-  box(26,-.028,-6,4,.07,59,paving).castShadow=false;
+  box(30,-.028,-6,4,.07,59,paving).castShadow=false;
   box(10,-.021,18,34,.08,3.6,paving).castShadow=false;
   box(8,.015,8,22,.07,13,grass).castShadow=false;
   for(let i=0;i<11;i++) box(-39,.015,-21+i*4.1,4,.018,.08,0xd8d7bd).castShadow=false;

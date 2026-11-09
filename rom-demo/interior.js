@@ -3,6 +3,10 @@ export function buildInterior(T, scene, box, surface, texture, entrance) {
   const origin=300;
   const walls=[];
   const lights=[];
+  const sharedLights=Array.from({length:3},()=>{
+    const light=new T.PointLight(0xffedcc,0,7);
+    scene.add(light);existingNodes.add(light);return light;
+  });
   const tile=surface('#b8a18b',['#b09c85','#baa58e','#c0ac94'],5,true);
   const wood=surface('#b88755',['#ad7d4e','#ba8d5b','#bf935d'],6,true);
   const wall=(x,z,w,d)=>{
@@ -10,8 +14,11 @@ export function buildInterior(T, scene, box, surface, texture, entrance) {
     box(origin+x,1.8,z,w,3.6,d,0xe5d6aa).castShadow=false;
     box(origin+x,.42,z,w+.025,.84,d+.025,0xa98d6f).castShadow=false;
   };
-  box(origin,-.12,0,28,.24,28,tile);
-  box(origin,3.68,0,28,.15,28,0xe9e4d4).castShadow=false;
+  const edgeInset=.36;
+  box(origin,-.12,0,28-edgeInset*2,.24,28-edgeInset*2,tile);
+  box(origin,-.12,14-edgeInset/2,gapWidth(),.24,edgeInset,tile);
+  box(origin,3.68,0,28-edgeInset*2,.15,28-edgeInset*2,0xe9e4d4).castShadow=false;
+  function gapWidth(){return entrance.width/entrance.scaleX-.12;}
   wall(0,-14,28,.25);
   const gap=entrance.width/entrance.scaleX;
   for(const side of [-1,1])wall(side*(14+gap/2)/2,13.66,14-gap/2,.25);
@@ -21,8 +28,7 @@ export function buildInterior(T, scene, box, surface, texture, entrance) {
   box(origin-9.5,.01,-5,8.7,.02,17.7,wood);
   box(origin+9.5,.01,-4.3,8.7,.02,19,wood);
   for(const [x,z] of [[0,8],[0,0],[0,-9],[-9,-7],[9,-5],[9,9],[-9,7]]) {
-    const light=new T.PointLight(0xffedcc,30,12);
-    light.position.set(origin+x,3.27,z);light.visible=false;scene.add(light);lights.push(light);
+    if((x===0&&z===0)||(x===-9&&z===-7)||(x===9&&z===-5))lights.push(new T.Vector3(origin+x,3.17,z));
     box(origin+x,3.49,z,1.75,.08,.39,new T.MeshBasicMaterial({color:0xfff4da}));
   }
   function sign(label,x,y,z,w,h,turn=0) {
@@ -119,6 +125,7 @@ export function buildInterior(T, scene, box, surface, texture, entrance) {
   const worldX=x=>entrance.x+(x-origin)*entrance.scaleX;
   const worldZ=z=>centerZ+z*entrance.scaleZ;
   for(const part of walls){part.x=worldX(part.x);part.z=worldZ(part.z);part.w*=entrance.scaleX;part.d*=entrance.scaleZ;if(part.bottom!==undefined)part.bottom+=entrance.y;if(part.top!==undefined)part.top+=entrance.y;}
+  for(const light of lights){light.x=worldX(light.x);light.z=worldZ(light.z);light.y+=entrance.y;}
   for(const stair of floors[0].stairs){stair.x=worldX(stair.x);stair.z=worldZ(stair.z);}
   Object.assign(floors[0],{origin:entrance.x,mapX:x=>(x-entrance.x)/entrance.scaleX,mapZ:z=>(z-centerZ)/entrance.scaleZ,spawnZ:worldZ(-6.2),baseY:entrance.y});
   for(let index=1;index<3;index++) {
@@ -150,8 +157,7 @@ export function buildInterior(T, scene, box, surface, texture, entrance) {
     plaque(base,index===1?'BIBLIOTEKA':'DAILĖS KLASĖ',-4.86,2.6,-2.7,2.2,Math.PI/2);
     plaque(base,index===1?'GAMTOS MOKSLAI':'SKAITYKLA',4.86,2.6,-2.7,2.2,-Math.PI/2);
     for(const [x,z] of [[0,8],[0,0],[0,-8],[-9,-5],[9,-5],[-9,8],[9,8]]) {
-      const light=new T.PointLight(0xffedcc,27,11);
-      light.position.set(base+x,3.27,z);light.visible=false;scene.add(light);floor.lights.push(light);
+      if((x===0&&z===0)||(x===-9&&z===-5)||(x===9&&z===-5))floor.lights.push(new T.Vector3(base+x,3.17,z));
       box(base+x,3.49,z,1.75,.08,.39,upperMaterial).castShadow=false;
     }
     for(const side of [-1,1]) {
@@ -194,7 +200,12 @@ export function buildInterior(T, scene, box, surface, texture, entrance) {
     const active=x===undefined?null:floorAt(x);
     if(active===litFloor)return;
     litFloor=active;
-    for(const floor of floors)for(const light of floor.lights)light.visible=floor===active;
+    // Keep the light count fixed so crossing the doorway reuses the same shader programs.
+    sharedLights.forEach((light,index)=>{
+      light.intensity=active?(active.mapX?23:44):0;
+      light.distance=active?.mapX?7:14;
+      if(active)light.position.copy(active.lights[index]);
+    });
   }
   return {origin:entrance.x,walls,floors,floorAt,stairHeight,setLighting,restroom:{x:worldX(origin+9),z:worldZ(12)}};
 }
