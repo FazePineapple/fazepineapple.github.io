@@ -1,5 +1,26 @@
 export function createCombat(T, scene, box, oval, groundAt, blocked) {
   const bots=[];
+  const tracerGeometry=new T.BufferGeometry();
+  tracerGeometry.setAttribute('position',new T.BufferAttribute(new Float32Array(6),3));
+  const tracer=new T.Line(tracerGeometry,new T.LineBasicMaterial({color:0xffe798,transparent:true}));
+  tracer.frustumCulled=false;
+  tracer.visible=false;
+  scene.add(tracer);
+  let tracerTime=0;
+  function healthBar() {
+    const canvas=document.createElement('canvas');
+    canvas.width=128;canvas.height=24;
+    const context=canvas.getContext('2d');
+    const map=new T.CanvasTexture(canvas);
+    const sprite=new T.Sprite(new T.SpriteMaterial({map,depthWrite:false}));
+    sprite.position.y=2.03;sprite.scale.set(.95,.178,1);
+    return {sprite,draw(hp){
+      context.fillStyle='#1a2620';context.fillRect(0,0,128,24);
+      context.fillStyle='#733d35';context.fillRect(4,4,120,16);
+      context.fillStyle='#a9df67';context.fillRect(4,4,120*hp/100,16);
+      map.needsUpdate=true;
+    }};
+  }
   const homes=[[-1,27],[12,26],[31,21]];
   for(const [x,z] of homes) {
     const model=new T.Group();
@@ -14,18 +35,22 @@ export function createCombat(T, scene, box, oval, groundAt, blocked) {
       box(0,-.28,0,.16,.61,.18,0x383c39,pivot);
       return pivot;
     });
-    bots.push({model,legs,x,z,hp:100,phase:bots.length,alert:0,cooldown:0,respawn:0});
+    const bar=healthBar();bar.draw(100);model.add(bar.sprite);
+    bots.push({model,bar,legs,x,z,hp:100,phase:bots.length,alert:0,cooldown:0,respawn:0});
   }
   const delta=new T.Vector3(), forward=new T.Vector3();
   return {
     update(dt,player,damage) {
+      tracerTime=Math.max(0,tracerTime-dt);
+      tracer.visible=tracerTime>0;
+      tracer.material.opacity=tracerTime/.12;
       for(const bot of bots) {
         const {model}=bot;
         if(!bot.hp) {
           bot.respawn-=dt;
           if(bot.respawn>0)continue;
           model.position.set(bot.x,groundAt(bot.x,bot.z),bot.z);
-          model.visible=true;bot.hp=100;
+          model.visible=true;bot.hp=100;bot.bar.draw(100);
         }
         const p=model.position;
         bot.alert=Math.max(0,bot.alert-dt);
@@ -67,8 +92,22 @@ export function createCombat(T, scene, box, oval, groundAt, blocked) {
         }
         if(clear){closest=distance;target=bot;}
       }
+      if(weapon.ranged) {
+        const end=target?delta.copy(target.model.position):delta.copy(position).addScaledVector(forward,weapon.range);
+        if(!target)for(let step=.3;step<weapon.range;step+=.3) {
+          if(blocked(position.x+forward.x*step,position.z+forward.z*step)) {
+            end.copy(position).addScaledVector(forward,step);break;
+          }
+        }
+        const points=tracerGeometry.attributes.position;
+        points.setXYZ(0,position.x+forward.x*.55,position.y+1.22,position.z+forward.z*.55);
+        points.setXYZ(1,end.x,end.y+1.22,end.z);
+        points.needsUpdate=true;
+        tracerTime=.12;tracer.visible=true;tracer.material.opacity=1;
+      }
       if(!target)return 'Miss';
       target.hp=Math.max(0,target.hp-weapon.damage);
+      target.bar.draw(target.hp);
       if(target.hp){target.alert=7;return 'Practice bot · '+target.hp+' HP';}
       target.model.visible=false;target.respawn=15;target.alert=0;
       return 'Practice bot defeated';

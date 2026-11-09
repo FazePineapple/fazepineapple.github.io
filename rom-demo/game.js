@@ -685,6 +685,7 @@ function boot() {
   window.addEventListener('blur',()=>{keys.clear();touchKeys.clear();dragging=false;});
   canvas.addEventListener('pointerdown',e=>{
     if(!active||packOpen)return;
+    if(e.pointerType==='mouse' && e.button===0)attack();
     dragging=true;lastX=e.clientX;lastY=e.clientY;
     canvas.setPointerCapture(e.pointerId);
     if(e.pointerType==='mouse') canvas.requestPointerLock?.()?.catch(()=>{});

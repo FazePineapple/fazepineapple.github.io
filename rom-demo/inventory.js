@@ -2,7 +2,7 @@ export const items = {
   dagger: {name:'Sruguputu',description:'Japonijos mero durklas',icon:'🗡️',stack:1,
     weapon:{name:'Sruguputu',damage:100,range:2.7,aim:.42,cooldown:.55}},
   blaster: {name:'Training blaster',icon:'🔫',stack:1,
-    weapon:{name:'Training blaster',damage:35,range:16,aim:.95,cooldown:.65}},
+    weapon:{name:'Training blaster',damage:35,ranged:true,range:16,aim:.95,cooldown:.65}},
   juice: {name:'Small juice pack', icon:'🧃', stack:64, effects:[{type:'bladder',seconds:50}]},
   bun: {name:'Sausage bun', icon:'🌭', stack:64, effects:[{type:'stamina',amount:40},{type:'gas',seconds:36}]},
   beer: {name:'Beer bottle', icon:'🍺', stack:64, effects:[{type:'dizzy',seconds:24}]},
