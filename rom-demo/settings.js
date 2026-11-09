@@ -2,7 +2,7 @@ const actions={
   KeyW:'Forward', KeyA:'Move left', KeyS:'Back', KeyD:'Move right',
   ShiftLeft:'Sprint', Space:'Jump', KeyE:'Interact', KeyF:'Use or equip',
   KeyX:'Attack', KeyQ:'Throw', KeyI:'Inventory', KeyB:'Emotes',
-  KeyV:'Camera view', KeyN:'Day or night', KeyC:'Climb', KeyR:'Reset position',
+  KeyV:'Camera view', KeyN:'Day or night', KeyC:'Climb', KeyJ:'Jetpack', KeyR:'Reset position',
 };
 const storageKey='romgame.settings.v1';
 const defaults={volume:1,muted:false,sensitivity:1,invert:false,bindings:{}};

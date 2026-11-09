@@ -49,3 +49,4 @@
 #bindingMessage{min-height:2.5em;font-size:12px}
 .settings-buttons{display:flex;justify-content:flex-end;gap:6px;margin-top:12px}
 @media(max-width:480px){.settings-options{grid-template-columns:1fr}}
+#flight{position:absolute;left:20px;top:108px;background:#142119e8;color:#d6fa87;padding:5px 8px;border-radius:4px;font:750 11px system-ui}

@@ -488,6 +488,20 @@ function boot() {
   let bladder=0, gas=0, pressureTime=0, gasDelay=0, puffTime=0;
   let emoteOpen=false, emote=null, emoteTime=0;
   const emoteDuration={wave:1.65,flip:.85,fall:1.55,laugh:1.55,fart:.72,pee:1.55};
+  let jetpack=false;
+  const jetRig=new T.Group(), exhaust=new T.Group();
+  torso.add(jetRig);jetRig.add(exhaust);jetRig.visible=false;exhaust.visible=false;
+  for(const x of [-.125,.125]) {
+    mesh(new T.CapsuleGeometry(.087,.33,5,10),0x65747a,x,1.25,-.22,jetRig);
+    box(x,1.24,-.303,.12,.095,.028,0xe2a13e,jetRig);
+    mesh(new T.ConeGeometry(.068,.30,10),new T.MeshBasicMaterial({color:0x78d8ff}),x,.84,-.22,exhaust).rotation.x=Math.PI;
+  }
+  function toggleJetpack() {
+    if(inside(player.position.x) || climbing || emote || pickupMotion)return;
+    jetpack=!jetpack;jetRig.visible=jetpack;exhaust.visible=false;
+    $('flight').hidden=!jetpack;
+    notice(jetpack?'Jetpack equipped · Hold jump to thrust':'Jetpack stowed');
+  }
   const rig=new T.Group();
   for(const part of [...player.children])rig.add(part);
   player.add(rig);
@@ -643,7 +657,8 @@ function boot() {
     notice('School · Floor '+(index+1));
   }
   function changeArea(enter) {
-    if(emote)return;
+    if(emote || airborne)return;
+    if(enter && jetpack)toggleJetpack();
     audio.ambience(true,enter);
     interior.setLighting(enter?interior.origin:outdoorDoor.x);
     player.position.set(enter?interior.origin:outdoorDoor.x,.03,enter?9:3.2);
@@ -812,7 +827,11 @@ function boot() {
   $('packButton').onclick=()=>togglePack(true);
   $('closePack').onclick=()=>togglePack(false);
   $('packThrow').onclick=()=>throwItem(grabbed ?? selected);
-  $('jumpButton').onclick=()=>jump();
+  const jumpButton=$('jumpButton');
+  jumpButton.onpointerdown=e=>{jumpButton.setPointerCapture(e.pointerId);touchKeys.set(e.pointerId,'Space');};
+  jumpButton.onlostpointercapture=e=>touchKeys.delete(e.pointerId);
+  jumpButton.onclick=()=>{if(!jetpack)jump();};
+  $('jetButton').onclick=toggleJetpack;
   $('pickButton').onclick=interact;
   $('useButton').onclick=()=>useItem();
   $('attackButton').onclick=attack;
@@ -864,7 +883,7 @@ function boot() {
     $('deathScreen').hidden=false;$('reticle').hidden=true;
   }
   function reset() {
-    deathTime=0;climbing=null;$('deathScreen').hidden=true;
+    deathTime=0;climbing=null;jetpack=false;jetRig.visible=false;exhaust.visible=false;$('flight').hidden=true;$('deathScreen').hidden=true;
     if(pickupMotion){scene.remove(pickupMotion.model);pickupMotion=null;}
     rig.visible=!firstPerson;
     player.position.set(-9,.03,22);
@@ -916,12 +935,13 @@ function boot() {
     if(emoteOpen)return;
     if(key==='KeyI') {e.preventDefault();if(!e.repeat)togglePack(!packOpen);return;}
     if(packOpen)return;
+    if(key==='KeyJ'&&!e.repeat){toggleJetpack();return;}
     if(key==='KeyC'&&!e.repeat){toggleClimb();return;}
     if(key==='KeyV'&&!e.repeat){firstPerson=!firstPerson;rig.visible=!firstPerson;notice(firstPerson?'First person':'Third person');return;}
     if(/^Digit[1-9]$/.test(key)){selected=Number(key.at(-1))-1;renderSlots();return;}
     if(['Space','KeyE','KeyQ','KeyF','KeyX'].includes(key)) {
       e.preventDefault();
-      if(!e.repeat) {if(key==='Space')jump();else if(key==='KeyE')interact();else if(key==='KeyF')useItem();else if(key==='KeyX')attack();else throwItem();}
+      if(!e.repeat) {if(key==='Space'){keys.add(key);if(!jetpack)jump();}else if(key==='KeyE')interact();else if(key==='KeyF')useItem();else if(key==='KeyX')attack();else throwItem();}
       return;
     }
     if(!controls.includes(key))return;
@@ -1016,6 +1036,9 @@ function boot() {
     } else if(active && !packOpen && !emoteOpen) {
       const f=Number(down('KeyW','ArrowUp'))-Number(down('KeyS','ArrowDown'));
       const s=Number(down('KeyD','ArrowRight'))-Number(down('KeyA','ArrowLeft'));
+      const thrust=jetpack && !climbing && !emote && !pickupMotion && stamina>0 && player.position.y<32 && down('Space');
+      exhaust.visible=thrust;
+      if(thrust){airborne=true;stamina=Math.max(0,stamina-14*dt);recovery=.65;}
       const running=!climbing && !pickupMotion && (!emote || emote==='fart') && (f||s) && !exhausted && !airborne && down('ShiftLeft','ShiftRight');
       const posing=climbing || pickupMotion || (emote && emote!=='fart');
       movement.set(posing?0:s,0,posing?0:-f).normalize().applyAxisAngle(T.Object3D.DEFAULT_UP,yaw);
@@ -1028,7 +1051,8 @@ function boot() {
       const floor=Math.max(groundAt(player.position.x,player.position.z),roofAt(player.position.x,player.position.z,player.position.y));
       if(!climbing && !airborne && player.position.y-floor>.22){airborne=true;verticalSpeed=0;}
       if(airborne && !climbing) {
-        verticalSpeed-=16*dt;
+        verticalSpeed=thrust?Math.min(7,verticalSpeed+24*dt):verticalSpeed-16*dt;
+        if(jetpack)verticalSpeed=Math.max(-7,verticalSpeed);
         player.position.y+=verticalSpeed*dt;
         if(player.position.y<=floor && verticalSpeed<=0) {
           health=Math.max(0,health-Math.max(0,-verticalSpeed-8)*8);
@@ -1039,7 +1063,7 @@ function boot() {
       if(running && moving) {
         stamina=Math.max(0,stamina-21*dt); recovery=.7;
         if(stamina===0)exhausted=true;
-      } else if(!climbing) {
+      } else if(!climbing && !thrust) {
         recovery=Math.max(0,recovery-dt);
         if(!recovery)stamina=Math.min(100,stamina+16*dt);
         if(stamina>=22)exhausted=false;
