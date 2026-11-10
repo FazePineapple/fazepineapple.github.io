@@ -27,6 +27,9 @@
  *            fires a visible shot; stun freezes the bot for n seconds, homing
  *            (turn rate) steers toward the nearest bot. auto: fires while held.
  *   camera   true — left click takes a photo ('photo:taken' event).
+ *   explosive {fuse, radius, damage} — with use.action:'plant' it is put down
+ *            in front of Rom, blinks and beeps, then explodes after `fuse` s,
+ *            hurting bots and Rom by distance (full damage at the centre).
  *   throw:   {damage, speed?, lift?, gravity?, pointFirst?, stink?}
  *            Left click throws items that have `throw` but no `weapon` or `use`.
  */
@@ -71,6 +74,13 @@ export const items = {
     description:'Pastatyk ir atsisėsk arba mesk į priešą.',
     use:{verb:'Pastatyti', action:'sit'},
     throw:{damage:30, speed:9, lift:2.4},
+  },
+  c4: {
+    name:'C4 sprogmuo', icon:'🧨', stack:4,
+    description:'Padėk (kairysis pelės klavišas) ir bėk – po 10 s sprogsta. Kuo arčiau, tuo skaudžiau.',
+    use:{verb:'Padėti', action:'plant'},
+    explosive:{fuse:10, radius:7, damage:140},
+    throw:{damage:10, speed:10},
   },
   poop: {
     name:'Kakutis', icon:'💩', stack:16,
@@ -119,6 +129,12 @@ export const items = {
     name:'Sulčių pakelis', icon:'🧃', stack:64,
     use:{verb:'Gerti', animation:'drink', message:'Sultys išgertos · +5 gyvybės · Netrukus prireiks tualeto',
       effects:[{health:5}, {timer:'bladder', seconds:50}, {meter:'bladder', add:38}, {meter:'stomach', add:12}]},
+  },
+  muffin: {
+    name:'Keksiukas', icon:'🧁', stack:16,
+    description:'Šokoladinis keksiukas. Pasotina ir prideda jėgų.',
+    use:{verb:'Valgyti', animation:'eat', message:'Keksiukas suvalgytas · +20 gyvybės · +20 ištvermės',
+      effects:[{health:20}, {stamina:20}, {meter:'bowel', add:15}, {meter:'stomach', add:25}]},
   },
   bun: {
     name:'Bandelė su dešrele', icon:'🌭', stack:64,

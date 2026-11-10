@@ -51,6 +51,7 @@
 @media(max-width:480px){.settings-options{grid-template-columns:1fr}}
 #flight{position:absolute;left:20px;bottom:214px;background:#142119e8;color:#d6fa87;padding:5px 8px;border-radius:4px;font:750 11px system-ui}
 .location #clock{margin-top:4px;font:800 15px ui-monospace,monospace;letter-spacing:.1em;color:#fff}
+.car-vitals{grid-template-columns:1fr}#carHealth::-webkit-meter-optimum-value{background:#7ec8ff}#carHealth::-webkit-meter-suboptimum-value{background:#ffb43a}#carHealth::-webkit-meter-even-less-good-value{background:#ff5a3a}
 .secondary-vitals{grid-template-columns:repeat(4,minmax(0,1fr))}#bowel::-webkit-meter-optimum-value{background:#cf9876}
 @media(max-width:600px){#prompt{max-width:92vw;white-space:normal;text-align:center}}
 @media(pointer:fine){#quickbar{bottom:86px}}

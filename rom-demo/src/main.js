@@ -35,6 +35,7 @@ import {createInventory} from './items/inventory.js';
 import {createItemModels} from './items/item-models.js';
 import {createEquipment} from './items/equipment.js';
 import {createPickups} from './items/pickups.js';
+import {createExplosives} from './items/explosives.js';
 import {createCombat} from './combat/combat.js';
 import {createNpcs} from './npc/npcs.js';
 import {createQuestEngine} from './quests/quest-engine.js';
@@ -125,6 +126,7 @@ export function boot() {
   game.movement = createMovement(game);
   game.actions = createActions(game);
   game.pickups = createPickups(game);
+  game.explosives = createExplosives(game);
   game.seating = createSeating(game);
   game.vehicles = createVehicles(game);
   game.photos = createPhotos(game);
@@ -376,6 +378,7 @@ export function boot() {
     game.vehicles.car.group.visible = campus.chunk.visible;
     const isVisible = (px, pz, py) => collision.inside(px, pz, py) ? interior.floorAt(px).chunk.visible : campus.chunk.visible;
     pickups.updateVisibility(isVisible);
+    game.explosives.updateVisibility(isVisible);
     npcs.updateVisibility(isVisible);
     return cameraIndoors;
   }
@@ -391,15 +394,23 @@ export function boot() {
     if (game.active && state.deathTime) {
       state.deathTime += dt;
       cameraRig.updateDeath();
+      // The world keeps moving behind the death screen: flying bodies, fire, blasts.
+      combat.update(dt, rom.player, () => {});
+      game.explosives.update(dt);
+      game.vehicles.tick(dt);
       if (state.deathTime >= 3.1) { respawn(); game.notice('Grįžai į kiemą'); }
     } else if (unpaused) {
       updateDoors(dt);
       movement.update(dt, input);
-      combat.update(dt, rom.player, amount => { if (!state.vehicle) game.damage(amount, 'Robotas smogė'); });
+      // Bots punching a driven car dent the car instead of Rom.
+      combat.update(dt, rom.player, amount => { if (state.vehicle) game.vehicles.damage(amount * .8); else game.damage(amount, 'Robotas smogė'); });
       game.photos.update(dt);
       actions.update(dt, input.sprayHeld);
+      game.explosives.update(dt);
+      game.vehicles.tick(dt);
       vitals.update(dt);
       hud.updateVitals(state);
+      hud.setCarHealth(state.vehicle ? state.vehicle.hp : null);
       animation.update(dt);
       const indoors = collision.inside(position.x, position.z, position.y);
       interior.setLighting(indoors ? position.x : undefined);

@@ -60,6 +60,13 @@ export function createItemModels(build, items) {
       box(0,.15,.067,.11,.12,.012,0xf8f0bf,parent);
       box(.04,.197,.079,.017,.15,.015,0xe5e9db,parent).rotation.z=.11;
     },
+    muffin(parent) {
+      // Ribbed paper cup, a domed top and a few chocolate chips.
+      mesh(shared('item:muffin-cup', () => new T.CylinderGeometry(.075,.055,.085,14)),0xd9644f,0,.0425,0,parent);
+      for(let i=0;i<7;i++){const a=i/7*Math.PI*2;box(Math.cos(a)*.066,.0425,Math.sin(a)*.066,.008,.08,.008,0xf0a08c,parent).rotation.y=-a;}
+      oval(parent,0xc4874a,0,.095,0,.092,.058,.092);
+      for(const [x,z] of [[.03,.02],[-.035,.012],[0,-.042],[-.012,.046],[.046,-.022],[0,0]])oval(parent,0x45281a,x,.142-Math.hypot(x,z)*.25,z,.012,.01,.012);
+    },
     bun(parent) {
       oval(parent,0xd39a53,0,.071,0,.097,.07,.22);
       oval(parent,0xab4e36,0,.113,0,.055,.046,.212);
@@ -82,6 +89,15 @@ export function createItemModels(build, items) {
       mesh(shared('item:straw', () => new T.CylinderGeometry(.012,.012,.36,8)),0xe6eef0,0,.18,0,parent);
       for(let i=0;i<4;i++)box(0,.04+i*.09,0,.026,.022,.026,0xd8454a,parent);
       oval(parent,0xf4f1e6,.05,.03,.02,.03,.025,.03);
+    },
+    c4(parent) {
+      // Three putty bricks taped together with a timer on top (red LED added when armed).
+      for(const x of [-.07,0,.07])box(x,.045,0,.066,.09,.2,0xd8cfae,parent);
+      for(const z of [-.06,.06])box(0,.046,z,.215,.094,.022,0x3d4a3a,parent);
+      box(0,.105,.03,.13,.035,.09,0x23282b,parent);
+      box(-.02,.124,.03,.06,.004,.04,0x6fe36a,parent);
+      box(-.05,.1,-.05,.012,.012,.1,0xc93a2f,parent).rotation.x=.3;
+      box(.05,.1,-.05,.012,.012,.1,0x2f62c9,parent).rotation.x=.3;
     },
     poop(parent) {
       const brown=[0x5b3a1e,0x6b4425,0x54351b];

@@ -55,6 +55,7 @@ export function createInput(game) {
     KeyF:() => game.actions.useItem(),
     KeyQ:() => game.actions.throwItem(),
     KeyX:() => game.actions.primaryAction(),
+    KeyK:() => game.actions.kick(),
     KeyR:() => game.unstuck(),
     Space:() => { if (!state.jetpack) game.movement.jump(); },
   };
@@ -161,6 +162,7 @@ export function createInput(game) {
   pickButton.onpointercancel = () => game.interactions.cancelHold();
   $('useButton').onclick = () => game.actions.useItem();
   $('throwButton').onclick = () => game.actions.throwItem();
+  $('kickButton').onclick = () => game.actions.kick();
   const attackButton = $('attackButton');
   attackButton.onclick = () => game.actions.primaryAction();
   attackButton.onpointerdown = event => { if (event.button === 0) { sprayPointer = event.pointerId; capture(attackButton, event.pointerId); } };

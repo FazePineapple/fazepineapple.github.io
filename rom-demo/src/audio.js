@@ -21,7 +21,12 @@ export function createAudio() {
     shutter:[['square',2400,1800,.03,.06],['square',1600,900,.05,.05,.06]],
     horn:[['square',392,392,.35,.08],['square',494,494,.35,.06]],
     crash:[['sawtooth',160,40,.35,.14],['square',90,40,.3,.08]],
+    beep:[['square',1760,1750,.07,.045]],
+    explosion:[['sawtooth',110,24,1.2,.32],['square',64,22,1,.22],['triangle',220,38,.7,.18],['sawtooth',48,20,1.6,.16,.08]],
     thud:[['sine',140,55,.14,.12],['triangle',90,45,.1,.06]],
+    kick:[['square',210,80,.1,.1],['triangle',130,60,.13,.09]],
+    ignite:[['sawtooth',90,260,.45,.09],['triangle',400,120,.5,.05]],
+    fire:[['sawtooth',320,90,.09,.025],['square',180,70,.07,.018,.05]],
     questStart:[['triangle',523,523,.16,.08],['triangle',659,659,.22,.08,.12]],
     questComplete:[['triangle',523,523,.14,.08],['triangle',659,659,.14,.08,.11],['triangle',784,784,.32,.09,.22]],
   };

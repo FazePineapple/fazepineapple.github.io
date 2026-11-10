@@ -1,4 +1,5 @@
 import {createBotAppearance} from './bot-appearance.js';
+import {blastDamage, blastFalloff} from './blast.js';
 
 /**
  * Practice bots: patrol, chase and hit back, react to gas and being seen in
@@ -7,6 +8,8 @@ import {createBotAppearance} from './bot-appearance.js';
 /** Height of a bot's centre of mass above its feet (before size scaling). */
 const CENTRE=.95;
 const GRAVITY=18;
+/** Seconds a knocked-out bot's body lies around before it sinks away and respawns. */
+const RESPAWN=25;
 
 export function createCombat({T, scene, box, oval, groundAt, blocked, playSound=()=>{}, bus}) {
   const bots=[];
@@ -85,7 +88,8 @@ export function createCombat({T, scene, box, oval, groundAt, blocked, playSound=
     bus?.emit('bot:hit',{name:bot.name,profile:bot.profile.name,damage:amount,source,defeated:!bot.hp});
     if(bot.hp)return;
     bus?.emit('bot:defeated',{name:bot.name,profile:bot.profile.name,source});
-    bot.respawn=15;bot.alert=0;bot.gas=0;bot.stun=0;
+    // The body stays around to be kicked (issue #72) and sinks away just before the respawn.
+    bot.respawn=RESPAWN;bot.alert=0;bot.gas=0;bot.stun=0;
     // Knocked-out bots fall over and stay down for a moment instead of vanishing.
     if(!bot.body)launch(bot,impulse.set(0,1.2,0),tumble.set(-3.2-Math.random()*1.5,0,(Math.random()-.5)*1.5));
   }
@@ -96,8 +100,8 @@ export function createCombat({T, scene, box, oval, groundAt, blocked, playSound=
   let carObstacle=null;
   /** Turns a bot into a free-flying body with `velocity` (world) and `spin` (pivot-local, rad/s). */
   function launch(bot,velocity,spin) {
-    if(bot.body){bot.body.velocity.add(velocity);bot.body.spin.add(spin);bot.body.rest=0;bot.body.grounded=false;return;}
-    bot.body={velocity:velocity.clone(),spin:spin.clone(),rest:0,rise:0,grounded:false};
+    if(bot.body){const b=bot.body;b.velocity.add(velocity);b.spin.add(spin);b.rest=0;b.rise=0;b.grounded=false;return;}
+    bot.body={velocity:velocity.clone(),spin:spin.clone(),rest:0,rise:0,grounded:false,age:0};
     bot.bar.sprite.visible=false;
     bot.legs.forEach((leg,i)=>leg.rotation.x=i?.65:-.45);
   }
@@ -109,10 +113,9 @@ export function createCombat({T, scene, box, oval, groundAt, blocked, playSound=
   }
   function updateBody(bot,dt) {
     const b=bot.body, p=bot.model.position, pivot=bot.pivot, scale=bot.profile.scale;
-    if(!bot.hp && b.rest>2.5) {
-      // Defeated: sink into the ground and disappear until the respawn.
-      b.rest+=dt;p.y-=dt*.45;
-      if(b.rest>4.2){bot.body=null;pivot.rotation.set(0,0,0);bot.model.visible=false;}
+    if(!bot.hp && bot.respawn<2 && b.grounded && b.rest>.3) {
+      // Defeated and left alone: sink into the ground just before the respawn.
+      p.y-=dt*.45;
       return;
     }
     if(b.rise) {
@@ -157,6 +160,64 @@ export function createCombat({T, scene, box, oval, groundAt, blocked, playSound=
       } else b.rest=0;
     }
     if(bot.hp&&b.rest>1.4)b.rise=.001;
+    // Loose legs: they flail while the body flies and splay once it lies still.
+    b.age+=dt;
+    const flail=b.grounded?0:Math.min(1,(Math.abs(b.velocity.y)+Math.hypot(b.velocity.x,b.velocity.z))/8);
+    bot.legs.forEach((leg,i)=>{
+      const target=flail?Math.sin(b.age*11+i*Math.PI)*.8*flail+(i?.3:-.2):(i?.5:-.25);
+      leg.rotation.x+=(target-leg.rotation.x)*Math.min(1,dt*10);
+    });
+    knockOver(bot);
+  }
+
+  /** A body flying fast enough bowls over the standing bots it crashes into. */
+  function knockOver(bot) {
+    const b=bot.body, p=bot.model.position;
+    const speed=Math.hypot(b.velocity.x,b.velocity.z);
+    if(speed<4)return;
+    for(const other of bots) {
+      if(other===bot||!other.hp||other.body||!other.model.visible)continue;
+      const q=other.model.position;
+      if(Math.hypot(q.x-p.x,q.z-p.z)>.3*(bot.profile.scale+other.profile.scale)+.15||p.y>q.y+1.6*other.profile.scale)continue;
+      impulse.set(b.velocity.x*.6,1.5+speed*.15,b.velocity.z*.6);
+      axis.set(impulse.z,0,-impulse.x).normalize().applyAxisAngle(T.Object3D.DEFAULT_UP,-other.model.rotation.y);
+      tumble.copy(axis).multiplyScalar(speed*.6);tumble.y=(Math.random()-.5)*4;
+      launch(other,impulse,tumble);
+      damageBot(other,Math.round(speed*2),'thud','body');
+      if(other.hp)other.alert=8;
+      b.velocity.x*=.45;b.velocity.z*=.45;
+    }
+  }
+
+  /**
+   * Rom kicks (issue #72) the nearest bot or body within reach in front of
+   * him along `forward` (a horizontal unit vector). Knocked-out bodies fly
+   * and tumble; live bots take a little damage and stumble over.
+   * Returns a notice text, or null when nothing was in reach.
+   */
+  function kick(position,forward,range=1.7) {
+    let target=null, best=range;
+    for(const bot of bots) {
+      if(!bot.model.visible||(!bot.hp&&!bot.body))continue;
+      const p=bot.model.position;
+      const dx=p.x-position.x, dz=p.z-position.z, distance=Math.hypot(dx,dz);
+      if(distance>best||Math.abs(p.y-position.y)>1.6)continue;
+      if(distance>.25&&(dx*forward.x+dz*forward.z)/distance<.3)continue;
+      best=distance;target=bot;
+    }
+    if(!target)return null;
+    const alive=target.hp>0, power=alive?4.5:7.5;
+    impulse.set(forward.x*power,alive?2.6:4.2,forward.z*power);
+    // Tumble about the axis across the kick: the top tips away from Rom.
+    axis.set(forward.z,0,-forward.x).applyAxisAngle(T.Object3D.DEFAULT_UP,-target.model.rotation.y);
+    tumble.copy(axis).multiplyScalar(alive?4:7+Math.random()*4);tumble.y=(Math.random()-.5)*8;
+    launch(target,impulse,tumble);
+    playSound('kick');
+    bus?.emit('bot:kicked',{name:target.name,profile:target.profile.name,defeated:!alive});
+    if(!alive){target.respawn=Math.max(target.respawn,10);return target.name+' nuskrido';}
+    damageBot(target,12,null,'kick');
+    if(target.hp)target.alert=8;
+    return target.name+(target.hp?' · '+target.hp+' GY':' nugalėtas');
   }
 
   /**
@@ -258,6 +319,33 @@ export function createCombat({T, scene, box, oval, groundAt, blocked, playSound=
       return null;
     },
     collideCar,
+    kick,
+    /**
+     * A blast at `position` (issue #73): bots within `radius` with a clear
+     * line to it take damage by distance (blastDamage) and are thrown away
+     * from it as tumbling bodies. Returns the names hit.
+     */
+    explode(position,radius,damage) {
+      const hits=[];
+      for(const bot of bots) {
+        if(!bot.model.visible||(!bot.hp&&!bot.body))continue;
+        const p=bot.model.position, scale=bot.profile.scale;
+        delta.set(p.x-position.x,p.y+CENTRE*scale-position.y,p.z-position.z);
+        const distance=delta.length();
+        const amount=blastDamage(distance,radius,damage);
+        if(!amount||!clearPath(position,p))continue;
+        const power=blastFalloff(distance,radius);
+        const flat=Math.hypot(delta.x,delta.z)||1;
+        impulse.set(delta.x/flat*(3+power*11),3+power*9,delta.z/flat*(3+power*11));
+        tumble.set((Math.random()-.5)*14*power-power*6,(Math.random()-.5)*6,(Math.random()-.5)*10*power);
+        launch(bot,impulse,tumble);
+        if(!bot.hp)continue; // Already knocked out: just thrown around.
+        damageBot(bot,amount,'botHit','explosion');
+        if(bot.hp)bot.alert=8;
+        hits.push(bot.name+(bot.hp?' · '+bot.hp+' GY':' nugalėtas'));
+      }
+      return hits;
+    },
     setCarObstacle(obstacle){carObstacle=obstacle;},
     nearbyReaction(position,type) {
       let count=0;
@@ -278,7 +366,10 @@ export function createCombat({T, scene, box, oval, groundAt, blocked, playSound=
         const {model}=bot;
         if(bot.body) {
           updateBody(bot,dt);
-          if(!bot.hp)bot.respawn-=dt;
+          if(!bot.hp) {
+            bot.respawn-=dt;
+            if(bot.respawn<=0){bot.body=null;bot.pivot.rotation.set(0,0,0);model.visible=false;}
+          }
           continue;
         }
         if(!bot.hp) {

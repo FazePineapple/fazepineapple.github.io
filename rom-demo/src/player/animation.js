@@ -247,11 +247,25 @@ export function createAnimation(game) {
     torso.rotation.x += .32 * c;
   }
 
+  // Kick (issue #72): the leg on the right-arm side winds back, then snaps
+  // forward while the torso leans back and the arms swing for balance.
+  const kicker = limbs.find(limb => limb.arm === rightArm) ?? limbs[0];
+  function updateKick() {
+    if (!state.kick) return;
+    const t = Math.min(1, state.kick.time / .42);
+    const back = t < .3 ? Math.sin(t / .3 * Math.PI) * .45 : 0;
+    const out = t > .2 ? Math.sin(Math.min(1, (t - .2) / .8) * Math.PI) : 0;
+    kicker.leg.rotation.x = back - 1.65 * out;
+    for (const {arm, side} of limbs) { arm.rotation.x = .5 * out * (arm === rightArm ? 1 : -1); arm.rotation.z = side * .5 * out; }
+    torso.rotation.x -= .22 * out;
+  }
+
   function update(dt) {
     updateAttack(dt);
     updateBody();
     updateEmote(dt);
     updateCrouch();
+    updateKick();
     updatePickup(dt);
     updateConsume(dt);
   }

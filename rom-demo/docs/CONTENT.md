@@ -113,7 +113,13 @@ Main story chapters are just quests with `kind:'main'`; chain them with
 | `item:used`        | `{id}` eaten or drunk                    |
 | `item:thrown`      | `{id}`                                   |
 | `bot:hit`          | `{name, profile, damage, source, defeated}` |
-| `bot:defeated`     | `{name, profile, source}` — source is `melee`, `shot`, `throw`, `spray` or `gas` |
+| `bot:defeated`     | `{name, profile, source}` — source is `melee`, `shot`, `throw`, `spray`, `gas`, `car`, `explosion`, `kick` or `body` (hit by another flying bot) |
+| `bot:kicked`       | `{name, profile, defeated}` — K kicks a bot or a knocked-out body |
+| `explosive:planted` | `{id}` when C4 is put down and armed |
+| `explosive:detonated` | `{id, hits, playerDamage}` — bots hurt and damage Rom took |
+| `vehicle:damaged`  | `{amount, hp}` — crashes, ramming bots, bots punching it, blasts |
+| `vehicle:burning`  | `{}` at 0 HP; it explodes 5 s later |
+| `vehicle:exploded` | `{playerInside}` — Rom dies if he was still inside |
 | `zone:entered`     | `{zone, area, floor, previous}`          |
 | `floor:entered`    | `{floor}` after using the stairs         |
 | `player:jump`, `player:died`, `player:respawned`, `player:restroom` | `{}` |
@@ -172,4 +178,6 @@ always around.
 - **Camera**: `camera:true` takes photos. Quests listen for `photo:taken` and can
   require characters in `subjects` and none in `noticed` (stealth). Characters with
   `watchful:true` notice photos taken within 6 m or from in front of them.
+- **Explosive** (like C4): `use:{verb, action:'plant'}` plus `explosive:{fuse, radius, damage}`.
+  Left click puts it down in front of Rom; it blinks and beeps faster, then hurts bots and Rom by distance.
 - **Eating**: `use.animation:'eat'` (bites) or `'drink'`; `{peeIn:n}` forces a pee after n s.

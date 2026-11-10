@@ -12,6 +12,7 @@ export function createHud(game) {
     equipped:$('equipped'), reticle:$('reticle'), toasts:$('toasts'),
     objective:$('objective'), objectiveKind:$('objectiveKind'), objectiveTitle:$('objectiveTitle'), objectiveText:$('objectiveText'), objectiveNote:$('objectiveNote'),
     waypoint:$('waypoint'), waypointLabel:$('waypointLabel'),
+    carVitals:$('carVitals'), carHealth:$('carHealth'), carHpValue:$('carHpValue'),
   };
   let message = '', messageTime = 0;
   const pending = [];
@@ -48,6 +49,11 @@ export function createHud(game) {
       meter(el.gas, el.gasValue, state.meters.gas);
       meter(el.bowel, el.bowelValue, state.meters.bowel);
       meter(el.stomach, el.stomachValue, Math.min(100, state.meters.stomach));
+    },
+    /** Car HP while driving; null hides the meter. */
+    setCarHealth(hp) {
+      setHidden(el.carVitals, hp === null);
+      if (hp !== null) meter(el.carHealth, el.carHpValue, hp);
     },
     updatePrompt(dt, actionLabel) {
       messageTime = Math.max(0, messageTime - dt);

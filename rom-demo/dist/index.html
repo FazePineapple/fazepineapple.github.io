@@ -57,6 +57,7 @@
   <div id="deathScreen" role="status" hidden><strong>ŽUVAI</strong></div><div id="reticle" aria-hidden="true" hidden>+</div><div id="flight" hidden>Reaktyvinė kuprinė · Laikyk šuolio klavišą</div><div id="effects" hidden></div>
   <div id="quickbar">
     <div id="prompt" role="status" hidden></div>
+    <div id="carVitals" class="vitals car-vitals" hidden><label>🚗 Automobilis <span id="carHpValue">100</span><meter id="carHealth" min="0" max="100" value="100" low="35" high="70" optimum="100"></meter></label></div>
     <div class="vitals">
       <label>♥ Gyvybė <span id="hpValue">100</span><meter id="health" min="0" max="100" value="100"></meter></label>
       <label>ϟ Ištvermė <span id="spValue">100</span><meter id="stamina" min="0" max="100" value="100"></meter></label>
@@ -69,9 +70,9 @@
     </div>
     <div id="equipped" aria-label="Rankoje"></div><div id="hotbar" class="slots" aria-label="Greitoji juosta"></div>
   </div>
-  <div id="help" class="help"><kbd data-binding="KeyW KeyA KeyS KeyD">WASD</kbd> Eiti <kbd data-binding="ShiftLeft">Shift</kbd> Bėgti <kbd data-binding="ControlLeft">Ctrl</kbd> Pritūpti <kbd data-binding="Space">Tarpas</kbd> Šokti <kbd data-binding="KeyE">E</kbd> Sąveika <kbd data-binding="KeyF">F</kbd> Naudoti <kbd data-binding="KeyX" data-binding-prefix="KPK / ">KPK / X</kbd> Veiksmas <kbd data-binding="KeyQ">Q</kbd> Mesti <kbd>1–9</kbd> Juosta <kbd data-binding="KeyB">B</kbd> Emocijos <kbd data-binding="KeyL">L</kbd> Žurnalas <kbd data-binding="KeyN">N</kbd> Diena / naktis <kbd data-binding="KeyV">V</kbd> Kamera <kbd data-binding="KeyC">C</kbd> Lipti <kbd data-binding="KeyJ">J</kbd> Reaktyvinė kuprinė <kbd data-binding="KeyR">R</kbd> Į kiemą <kbd data-binding="KeyH">H</kbd> Slėpti pagalbą</div>
+  <div id="help" class="help"><kbd data-binding="KeyW KeyA KeyS KeyD">WASD</kbd> Eiti <kbd data-binding="ShiftLeft">Shift</kbd> Bėgti <kbd data-binding="ControlLeft">Ctrl</kbd> Pritūpti <kbd data-binding="Space">Tarpas</kbd> Šokti <kbd data-binding="KeyE">E</kbd> Sąveika <kbd data-binding="KeyF">F</kbd> Naudoti <kbd data-binding="KeyX" data-binding-prefix="KPK / ">KPK / X</kbd> Veiksmas <kbd data-binding="KeyK">K</kbd> Spirti <kbd data-binding="KeyQ">Q</kbd> Mesti <kbd>1–9</kbd> Juosta <kbd data-binding="KeyB">B</kbd> Emocijos <kbd data-binding="KeyL">L</kbd> Žurnalas <kbd data-binding="KeyN">N</kbd> Diena / naktis <kbd data-binding="KeyV">V</kbd> Kamera <kbd data-binding="KeyC">C</kbd> Lipti <kbd data-binding="KeyJ">J</kbd> Reaktyvinė kuprinė <kbd data-binding="KeyR">R</kbd> Į kiemą <kbd data-binding="KeyH">H</kbd> Slėpti pagalbą</div>
   <button id="helpHint" class="help-hint" hidden><span data-binding="KeyH">H</span> &nbsp; Valdymas</button>
-  <div id="actions"><button id="jumpButton">Šokti</button><button id="jetButton">Reaktyvinė kuprinė</button><button id="pickButton">Sąveika</button><button id="useButton">Naudoti</button><button id="attackButton">Veiksmas</button><button id="throwButton">Mesti</button></div>
+  <div id="actions"><button id="jumpButton">Šokti</button><button id="jetButton">Reaktyvinė kuprinė</button><button id="pickButton">Sąveika</button><button id="useButton">Naudoti</button><button id="attackButton">Veiksmas</button><button id="throwButton">Mesti</button><button id="kickButton">Spirti</button></div>
   <section id="emotes" class="overlay" aria-label="Emocijos" hidden>
     <div class="inventory-panel">
       <h2>Emocijos</h2>

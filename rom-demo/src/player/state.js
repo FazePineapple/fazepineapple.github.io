@@ -14,7 +14,7 @@ export function createPlayerState() {
     climbing:null, jetpack:false, seat:null, vehicle:null,
     equipment:{jetpack:false},
     // Actions and animation.
-    deathTime:0, attackTime:0, swing:0, attack:null,
+    deathTime:0, attackTime:0, swing:0, attack:null, kick:null,
     emote:null, emoteTime:0, emoteMidpoint:false, pickupMotion:null, drinkMotion:null,
   };
 }

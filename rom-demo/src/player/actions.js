@@ -77,6 +77,7 @@ export function createActions(game) {
     }
     if (!item.use) { game.notice('Šį daiktą galima tik mesti (Q)'); return; }
     if (item.use.action === 'sit') { placeAndSit(index); return; }
+    if (item.use.action === 'plant') { plant(index); return; }
     const id = inventory.take(index);
     game.vitals.applyEffects(item.use.effects);
     if (item.use.animation) {
@@ -103,6 +104,22 @@ export function createActions(game) {
     const pickup = game.pickups.spawn(id, px, pz, {facing:Math.atan2(forward.x, forward.z) + Math.PI});
     equipment.refresh();
     game.seating.sit(pickup);
+  }
+
+  /** Puts an explosive (C4) down in front of Rom and arms it. */
+  function plant(index) {
+    if (state.airborne || state.climbing || state.seat) { game.notice('Čia sprogmens nepadėsi'); return; }
+    const {x, y, z} = rom.player.position;
+    const forward = aimDirection(new T.Vector3()).setY(0).normalize();
+    let px = x + forward.x * .7, pz = z + forward.z * .7;
+    if (collision.block(px, pz)) { px = x; pz = z; }
+    const id = inventory.take(index);
+    hotbar.grabbed = null;
+    game.panels.close();
+    state.swing = .26;
+    game.explosives.plant(id, px, y, pz, Math.atan2(forward.x, forward.z));
+    equipment.refresh();
+    game.notice(items[id].name + ' padėtas · Bėk! Sprogs po ' + (items[id].explosive?.fuse ?? 10) + ' s');
   }
 
   function throwItem(index = hotbar.selected) {
@@ -240,11 +257,37 @@ export function createActions(game) {
   function reset() {
     for (const puff of puffs) { puff.life = 0; puff.model.visible = false; }
     for (const shot of shots) { shot.life = 0; shot.model.visible = false; }
+    state.kick = null;
+  }
+
+  // Kick (issue #72): Rom turns to where the camera looks and swings a leg;
+  // the hit lands when the foot is out (see updateKick).
+  const KICK_TIME = .42, KICK_HIT = .15;
+  const kickDirection = new T.Vector3();
+  function kick() {
+    if (state.kick || state.attackTime > 0 || state.climbing || state.airborne || state.seat || state.jetpack || isBusy(state)) return;
+    state.kick = {time:0, hit:false};
+    state.attackTime = .2;
+    rom.player.rotation.y = state.yaw + Math.PI;
+    audio.play('swish');
+  }
+  function updateKick(dt) {
+    const motion = state.kick;
+    if (!motion) return;
+    motion.time += dt;
+    if (!motion.hit && motion.time >= KICK_HIT) {
+      motion.hit = true;
+      kickDirection.set(-Math.sin(state.yaw), 0, -Math.cos(state.yaw));
+      const result = combat.kick(rom.player.position, kickDirection);
+      game.notice(result ? 'Spyris · ' + result : 'Spyris · nieko nepasiekei');
+    }
+    if (motion.time >= KICK_TIME) state.kick = null;
   }
 
   function update(dt, sprayHeld) {
     state.attackTime = Math.max(0, state.attackTime - dt);
     state.swing = Math.max(0, state.swing - dt);
+    updateKick(dt);
     // Automatic weapons keep firing while the button is held.
     const held = equipment.held;
     if (sprayHeld && held?.weapon?.auto && !state.attackTime) shoot(held);
@@ -252,5 +295,5 @@ export function createActions(game) {
     updateShots(dt);
   }
 
-  return {primaryAction, attack, useItem, throwItem, update, reset, aimDirection};
+  return {primaryAction, attack, kick, useItem, throwItem, update, reset, aimDirection, KICK_TIME};
 }

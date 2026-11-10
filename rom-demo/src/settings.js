@@ -1,7 +1,7 @@
 const actions={
   KeyW:'Pirmyn', KeyA:'Į kairę', KeyS:'Atgal', KeyD:'Į dešinę',
   ShiftLeft:'Bėgti', ControlLeft:'Pritūpti', Space:'Šokti', KeyE:'Sąveika', KeyF:'Naudoti',
-  KeyX:'Veiksmas', KeyQ:'Mesti', KeyI:'Kuprinė', KeyB:'Emocijos', KeyL:'Užduočių žurnalas',
+  KeyX:'Veiksmas', KeyK:'Spirti', KeyQ:'Mesti', KeyI:'Kuprinė', KeyB:'Emocijos', KeyL:'Užduočių žurnalas',
   KeyV:'Kameros vaizdas', KeyN:'Diena / naktis', KeyC:'Lipti', KeyJ:'Reaktyvinė kuprinė', KeyR:'Grįžti į kiemą', KeyH:'Valdymo pagalba',
 };
 const storageKey='romgame.settings.v1';
