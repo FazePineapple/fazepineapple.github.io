@@ -1,6 +1,6 @@
 const actions={
   KeyW:'Pirmyn', KeyA:'Į kairę', KeyS:'Atgal', KeyD:'Į dešinę',
-  ShiftLeft:'Bėgti', Space:'Šokti', KeyE:'Sąveika', KeyF:'Naudoti',
+  ShiftLeft:'Bėgti', ControlLeft:'Pritūpti', Space:'Šokti', KeyE:'Sąveika', KeyF:'Naudoti',
   KeyX:'Veiksmas', KeyQ:'Mesti', KeyI:'Kuprinė', KeyB:'Emocijos', KeyL:'Užduočių žurnalas',
   KeyV:'Kameros vaizdas', KeyN:'Diena / naktis', KeyC:'Lipti', KeyJ:'Reaktyvinė kuprinė', KeyR:'Grįžti į kiemą', KeyH:'Valdymo pagalba',
 };
@@ -32,7 +32,7 @@ function loadSettings() {
 }
 
 function validKey(code) {
-  return /^(Key[A-Z]|Space|ShiftLeft|Backquote|Minus|Equal|BracketLeft|BracketRight|Semicolon|Quote|Comma|Period|Slash)$/.test(code);
+  return /^(Key[A-Z]|Space|ShiftLeft|ControlLeft|Backquote|Minus|Equal|BracketLeft|BracketRight|Semicolon|Quote|Comma|Period|Slash)$/.test(code);
 }
 
 function keyLabel(code) {
@@ -40,7 +40,7 @@ function keyLabel(code) {
     Backquote:'`', Minus:'-', Equal:'=', BracketLeft:'[', BracketRight:']',
     Semicolon:';', Quote:"'", Comma:',', Period:'.', Slash:'/',
   };
-  return punctuation[code]??code.replace(/^Key/,'').replace(/^ShiftLeft$/,'Kairysis Shift').replace(/^Space$/,'Tarpas');
+  return punctuation[code]??code.replace(/^Key/,'').replace(/^ShiftLeft$/,'Kairysis Shift').replace(/^ControlLeft$/,'Kairysis Ctrl').replace(/^Space$/,'Tarpas');
 }
 
 export function createSettings(document,audio) {
@@ -124,11 +124,11 @@ export function createSettings(document,audio) {
       if(pending){pending=null;render();}else show(false);
       return;
     }
-    if(!pending || event.code==='Tab' || event.ctrlKey || event.metaKey || event.altKey)return;
+    if(!pending || event.code==='Tab' || (event.ctrlKey&&event.code!=='ControlLeft') || event.metaKey || event.altKey)return;
     event.preventDefault();event.stopPropagation();
     if(event.repeat)return;
     if(!validKey(event.code)) {
-      message.textContent='Rinkis raidę, skyrybos ženklą, tarpą arba kairįjį Shift.';
+      message.textContent='Rinkis raidę, skyrybos ženklą, tarpą, kairįjį Shift arba kairįjį Ctrl.';
       return;
     }
     const previous=binding(pending);

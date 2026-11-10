@@ -58,7 +58,7 @@ export function createInput(game) {
     KeyR:() => game.unstuck(),
     Space:() => { if (!state.jetpack) game.movement.jump(); },
   };
-  const heldKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'Space', 'KeyX'];
+  const heldKeys = ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight', 'Space', 'KeyX'];
 
   window.addEventListener('keydown', event => {
     if (!game.active) return;
@@ -80,6 +80,9 @@ export function createInput(game) {
       return;
     }
     if (panel) return;
+    // Ctrl is crouch: keep browser shortcuts (Ctrl+S, Ctrl+D, Ctrl+F…) from
+    // firing while Rom sneaks around. Ctrl+W/T/N cannot be blocked by pages.
+    if (event.ctrlKey && !event.altKey && !event.metaKey) event.preventDefault();
     const digit = /^Digit([1-9])$/.exec(key);
     if (digit) { game.equipment.select(Number(digit[1]) - 1); return; }
     if (heldKeys.includes(key)) { event.preventDefault(); keys.add(key); }

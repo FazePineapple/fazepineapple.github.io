@@ -1,7 +1,8 @@
 import {emotes} from './emotes.js';
+import {canCrouch, moveSpeed, blendCrouch} from './stance.js';
 
 /**
- * Walking, sprinting, jumping, landing, wall climbing, the jetpack, and
+ * Walking, sprinting, crouching, jumping, landing, wall climbing, the jetpack, and
  * standing up from chairs.
  */
 export function createMovement(game) {
@@ -73,12 +74,13 @@ export function createMovement(game) {
   }
 
   function update(dt, input) {
-    if (state.vehicle) { state.moving = false; state.running = false; game.vehicles.update(dt, input); return; }
+    if (state.vehicle) { state.moving = false; state.running = false; state.crouching = false; state.crouch = 0; game.vehicles.update(dt, input); return; }
     const forward = input.axis('KeyW', 'ArrowUp', 'KeyS', 'ArrowDown');
     const strafe = input.axis('KeyD', 'ArrowRight', 'KeyA', 'ArrowLeft');
     if (state.seat) {
       // Seated: rest (stamina recovers faster) until Rom moves.
       if (!forward && !strafe) {
+        state.crouching = false; state.crouch = 0;
         state.moving = false; state.running = false; state.thrust = false; rom.exhaust.visible = false;
         state.stamina = Math.min(100, state.stamina + 24 * dt);
         if (state.stamina >= 22) state.exhausted = false;
@@ -93,13 +95,17 @@ export function createMovement(game) {
     state.thrust = thrust;
     rom.exhaust.visible = thrust;
     if (thrust) { state.airborne = true; state.stamina = Math.max(0, state.stamina - 14 * dt); state.recovery = .65; }
-    const running = !state.climbing && !state.pickupMotion && (!state.emote || state.emote === 'fart') &&
+    const crouching = canCrouch(state) && input.down('ControlLeft', 'ControlRight');
+    if (crouching !== state.crouching) game.bus.emit(crouching ? 'player:crouched' : 'player:stoodUp');
+    state.crouching = crouching;
+    state.crouch = blendCrouch(state.crouch, crouching, dt);
+    const running = !crouching && !state.climbing && !state.pickupMotion && (!state.emote || state.emote === 'fart') &&
       Boolean(forward || strafe) && !state.exhausted && !state.airborne && input.down('ShiftLeft', 'ShiftRight');
     const posing = state.climbing || state.pickupMotion || state.drinkMotion || (state.emote && state.emote !== 'fart');
     movement.set(posing ? 0 : strafe, 0, posing ? 0 : -forward).normalize().applyAxisAngle(UP, state.yaw);
     const x = position.x, z = position.z;
     const energized = state.timers.energy > 0;
-    const step = (running ? (energized ? 9.2 : 7.6) : 4.05) * dt;
+    const step = moveSpeed({running, crouching, energized}) * dt;
     if (!collision.playerBlocked(x + movement.x * step, z, position.y)) position.x += movement.x * step;
     if (!collision.playerBlocked(position.x, z + movement.z * step, position.y)) position.z += movement.z * step;
     const travelled = Math.hypot(position.x - x, position.z - z);
@@ -134,11 +140,11 @@ export function createMovement(game) {
       const angle = Math.atan2(movement.x, movement.z);
       const turn = rom.player.rotation;
       turn.y += Math.atan2(Math.sin(angle - turn.y), Math.cos(angle - turn.y)) * (1 - Math.exp(-dt * 16));
-      state.stride += dt * (running ? 13 : 9);
+      state.stride += dt * (running ? 13 : crouching ? 6 : 9);
     }
     state.landingTime = Math.max(0, state.landingTime - dt);
     state.moving = moving; state.running = running;
-    if (moving && !state.airborne && !state.climbing) game.bus.emit('player:moved', {distance:travelled, running});
+    if (moving && !state.airborne && !state.climbing) game.bus.emit('player:moved', {distance:travelled, running, crouching});
   }
 
   return {update, jump, toggleClimb, toggleJetpack, setJetpack};

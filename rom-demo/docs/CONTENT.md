@@ -124,7 +124,8 @@ Main story chapters are just quests with `kind:'main'`; chain them with
 | `school:opened` / `school:closed` | `{}` at opening hours        |
 | `photo:taken`      | `{subjects, noticed, bots, zone}` — subjects/noticed are character ids |
 | `vehicle:entered` / `vehicle:exited` | `{}` — the car          |
-| `player:moved`     | `{distance, running}` every frame Rom walks |
+| `player:moved`     | `{distance, running, crouching}` every frame Rom walks |
+| `player:crouched` / `player:stoodUp` | — when Ctrl crouch starts / ends |
 | `time:minute`      | `{minute}` in-game minute of the day     |
 | `school:bell`      | `{lesson, starts}`                       |
 | `quest:started` / `quest:progress` / `quest:completed` | `{id, title, …}` |

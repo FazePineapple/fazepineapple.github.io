@@ -10,7 +10,7 @@ export function createPlayerState() {
     pressureTime:0, gasDelay:0, puffTime:0, nausea:0, peeCountdown:0,
     // Movement.
     airborne:false, verticalSpeed:0, landingTime:0,
-    moving:false, running:false, thrust:false,
+    moving:false, running:false, thrust:false, crouching:false, crouch:0,
     climbing:null, jetpack:false, seat:null, vehicle:null,
     equipment:{jetpack:false},
     // Actions and animation.

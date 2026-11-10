@@ -1,3 +1,5 @@
+import {CROUCH_CAMERA_DROP} from './player/stance.js';
+
 /**
  * Follow camera (third person, with wall clearance), first person, the
  * WASTED death pull-back, the title-screen fly-by and the drunk sway.
@@ -13,12 +15,12 @@ export function createCameraRig(game) {
 
   function update(now, indoors) {
     aimVector.set(0, -Math.sin(state.pitch), -Math.cos(state.pitch)).applyAxisAngle(UP, state.yaw);
-    aimPoint.copy(position); aimPoint.y += 1.66;
+    aimPoint.copy(position); aimPoint.y += 1.66 - CROUCH_CAMERA_DROP * state.crouch;
     if (state.firstPerson) {
       camera.position.copy(aimPoint);
       camera.lookAt(wanted.copy(aimPoint).add(aimVector));
     } else {
-      target.copy(position).add(direction.set(0, 1.40, 0));
+      target.copy(position).add(direction.set(0, 1.40 - CROUCH_CAMERA_DROP * .8 * state.crouch, 0));
       const angle = T.MathUtils.clamp(.33 + state.pitch * .28, .05, .65);
       direction.set(0, Math.sin(angle), Math.cos(angle)).applyAxisAngle(UP, state.yaw).normalize();
       ray.set(target, direction);

@@ -1,7 +1,8 @@
 import {emotes} from './emotes.js';
+import {CROUCH_DROP, crouchLegAngle} from './stance.js';
 
 /**
- * Procedural body animation: walk cycle, falling and landing poses, climbing,
+ * Procedural body animation: walk cycle, crouching, falling and landing poses, climbing,
  * attack swings, sitting on chairs, emotes (see emotes.js), picking items up
  * and drinking.
  */
@@ -230,10 +231,27 @@ export function createAnimation(game) {
     game.equipment.refresh();
   }
 
+  // Crouch: hips drop, one leg forward and one back (feet stay on the
+  // ground), torso leans in. Applied after updateEmote, which resets the rig.
+  const crouchAngle = crouchLegAngle();
+  function updateCrouch() {
+    const c = state.crouch;
+    if (c < .001 || state.seat || state.vehicle || (state.emote && state.emote !== 'fart')) return;
+    rig.position.y = -CROUCH_DROP * c;
+    const step = state.moving ? Math.sin(state.stride) * .3 : 0;
+    for (const {leg, arm, side} of limbs) {
+      leg.rotation.x = T.MathUtils.lerp(leg.rotation.x, side * crouchAngle + step, c);
+      if (arm !== rightArm || (!state.swing && !state.attack && !state.pickupMotion && !state.drinkMotion))
+        arm.rotation.x = T.MathUtils.lerp(arm.rotation.x, -.35 - step * side * .5, c);
+    }
+    torso.rotation.x += .32 * c;
+  }
+
   function update(dt) {
     updateAttack(dt);
     updateBody();
     updateEmote(dt);
+    updateCrouch();
     updatePickup(dt);
     updateConsume(dt);
   }
