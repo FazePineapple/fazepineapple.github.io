@@ -1,7 +1,8 @@
 /**
  * A drivable car (issue #68). E next to it gets in; W/S accelerate and brake
  * or reverse, A/D steer, Space is the handbrake and E gets out. Hitting bots
- * at speed damages or knocks them out ('bot:defeated' with source 'car').
+ * at speed launches them as tumbling rigid bodies that take damage (and can be
+ * knocked out: 'bot:defeated' with source 'car'); slow contact just pushes them.
  * Rom is hidden while driving and the camera follows the car.
  */
 const MAX_SPEED = 15, MAX_REVERSE = 5;
@@ -43,6 +44,7 @@ export function createVehicles(game) {
     obstacle:{x:0, z:0, radius:1.55},
   };
   const removeObstacle = collision.addObstacle(car.obstacle);
+  combat.setCarObstacle(car.obstacle);
   const forward = new T.Vector3(), corner = new T.Vector3();
 
   function place(x, z, heading) {
@@ -130,11 +132,12 @@ export function createVehicles(game) {
       wheel.rotation.x += car.speed * dt / .33;
       if (front) pivot.rotation.y = car.steer * .45;
     }
-    // Run over bots.
-    if (Math.abs(car.speed) > 3) {
-      corner.set(c.x + forward.x * 1.6 * Math.sign(car.speed), 0, c.z + forward.z * 1.6 * Math.sign(car.speed));
-      const hits = combat.ram(corner, forward, 1.3, car.speed);
-      if (hits.length) { audio.play('crash'); game.notice('Partrenkei: ' + hits.join(', ')); car.speed *= .75; }
+    // Bots touching the car's body: nudged aside when slow, launched when fast.
+    const contact = combat.collideCar({x:c.x, z:c.z, heading:car.heading, speed:car.speed});
+    if (contact.hits.length) {
+      audio.play('crash');
+      game.notice('Partrenkei: ' + contact.hits.join(', '));
+      car.speed *= 1 - contact.slow;
     }
     // Rom rides along: the camera and minimap follow his position.
     rom.player.position.set(c.x, c.y, c.z);

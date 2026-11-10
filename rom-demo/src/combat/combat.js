@@ -4,6 +4,10 @@ import {createBotAppearance} from './bot-appearance.js';
  * Practice bots: patrol, chase and hit back, react to gas and being seen in
  * the toilet, and respawn. Emits 'bot:hit' and 'bot:defeated' on the bus.
  */
+/** Height of a bot's centre of mass above its feet (before size scaling). */
+const CENTRE=.95;
+const GRAVITY=18;
+
 export function createCombat({T, scene, box, oval, groundAt, blocked, playSound=()=>{}, bus}) {
   const bots=[];
   const courtyard=new T.Group();
@@ -51,11 +55,17 @@ export function createCombat({T, scene, box, oval, groundAt, blocked, playSound=
       box(0,-.28,0,.16,.61,.18,0x383c39,pivot);
       return pivot;
     });
-    const name=randomName(), bar=healthBar();bar.draw(100,name);model.add(bar.sprite);
+    const name=randomName(), bar=healthBar();bar.draw(100,name);
     const student=bots.length>=3;
     const appearance=createBotAppearance(T,model,box,oval);
     const profile=appearance.roll();
-    bots.push({model,name,student,appearance,profile,bar,legs,x,z,hp:100,phase:bots.length,alert:0,cooldown:0,coughTime:0,respawn:0,gas:0,gasTick:0});
+    // Everything visible hangs off a pivot at the centre of mass, so a
+    // tumbling body spins around its middle instead of around its feet.
+    const pivot=new T.Group();
+    pivot.position.y=CENTRE;
+    for(const part of [...model.children]){part.position.y-=CENTRE;pivot.add(part);}
+    model.add(pivot,bar.sprite);
+    bots.push({model,pivot,name,student,appearance,profile,bar,legs,x,z,hp:100,phase:bots.length,alert:0,cooldown:0,coughTime:0,respawn:0,gas:0,gasTick:0,body:null});
   }
   const delta=new T.Vector3(), forward=new T.Vector3();
   function clearPath(position,target) {
@@ -75,11 +85,129 @@ export function createCombat({T, scene, box, oval, groundAt, blocked, playSound=
     bus?.emit('bot:hit',{name:bot.name,profile:bot.profile.name,damage:amount,source,defeated:!bot.hp});
     if(bot.hp)return;
     bus?.emit('bot:defeated',{name:bot.name,profile:bot.profile.name,source});
-    bot.model.visible=false;bot.respawn=15;bot.alert=0;bot.gas=0;
+    bot.respawn=15;bot.alert=0;bot.gas=0;bot.stun=0;
+    // Knocked-out bots fall over and stay down for a moment instead of vanishing.
+    if(!bot.body)launch(bot,impulse.set(0,1.2,0),tumble.set(-3.2-Math.random()*1.5,0,(Math.random()-.5)*1.5));
+  }
+
+  // --- Rigid-body knockdowns -------------------------------------------------
+  const impulse=new T.Vector3(), tumble=new T.Vector3(), axis=new T.Vector3();
+  /** The car's own round obstacle: flying bodies and push-outs ignore it (see collideCar). */
+  let carObstacle=null;
+  /** Turns a bot into a free-flying body with `velocity` (world) and `spin` (pivot-local, rad/s). */
+  function launch(bot,velocity,spin) {
+    if(bot.body){bot.body.velocity.add(velocity);bot.body.spin.add(spin);bot.body.rest=0;bot.body.grounded=false;return;}
+    bot.body={velocity:velocity.clone(),spin:spin.clone(),rest:0,rise:0,grounded:false};
+    bot.bar.sprite.visible=false;
+    bot.legs.forEach((leg,i)=>leg.rotation.x=i?.65:-.45);
+  }
+  /** Distance from the centre of mass down to the lowest point, given how upright the body is. */
+  function reach(bot) {
+    const {x,z}=bot.pivot.rotation;
+    const upright=Math.abs(Math.cos(x)*Math.cos(z));
+    return (.24+(CENTRE-.24)*upright)*bot.profile.scale;
+  }
+  function updateBody(bot,dt) {
+    const b=bot.body, p=bot.model.position, pivot=bot.pivot, scale=bot.profile.scale;
+    if(!bot.hp && b.rest>2.5) {
+      // Defeated: sink into the ground and disappear until the respawn.
+      b.rest+=dt;p.y-=dt*.45;
+      if(b.rest>4.2){bot.body=null;pivot.rotation.set(0,0,0);bot.model.visible=false;}
+      return;
+    }
+    if(b.rise) {
+      // Getting back up: rotate upright, then hand control back to the AI.
+      b.rise=Math.min(1,b.rise+dt*1.8);
+      pivot.rotation.x*=1-b.rise; pivot.rotation.z*=1-b.rise;
+      p.y=groundAt(p.x,p.z)-CENTRE*scale+reach(bot);
+      if(b.rise<1)return;
+      pivot.rotation.set(0,0,0);p.y=groundAt(p.x,p.z);
+      bot.body=null;bot.bar.sprite.visible=true;bot.alert=8;
+      bot.legs.forEach(leg=>leg.rotation.x=0);
+      return;
+    }
+    b.velocity.y-=GRAVITY*dt;
+    const nx=p.x+b.velocity.x*dt, nz=p.z+b.velocity.z*dt;
+    // Walls: bounce the horizontal velocity back and lose some spin.
+    if(blocked(nx,p.z,carObstacle)){b.velocity.x*=-.35;b.spin.multiplyScalar(.7);}else p.x=nx;
+    if(blocked(p.x,nz,carObstacle)){b.velocity.z*=-.35;b.spin.multiplyScalar(.7);}else p.z=nz;
+    p.y+=b.velocity.y*dt;
+    pivot.rotation.x+=b.spin.x*dt;pivot.rotation.y+=b.spin.y*dt;pivot.rotation.z+=b.spin.z*dt;
+    const floor=groundAt(p.x,p.z)-CENTRE*scale+reach(bot);
+    b.grounded=p.y<=floor+.01;
+    if(p.y<=floor) {
+      p.y=floor;
+      if(b.velocity.y<-3){b.velocity.y*=-.3;b.spin.multiplyScalar(.55);playSound('thud');}
+      else b.velocity.y=Math.max(0,b.velocity.y);
+    }
+    if(b.grounded) {
+      // Ground friction and rolling resistance.
+      const friction=Math.max(0,1-7*dt);
+      b.velocity.x*=friction;b.velocity.z*=friction;b.spin.multiplyScalar(Math.max(0,1-4*dt));
+      const moving=Math.hypot(b.velocity.x,b.velocity.y,b.velocity.z)>.5||b.spin.length()>1.2;
+      if(!moving) {
+        // Settle flat on the back or the front, whichever is closer.
+        // A survivor that landed on its feet just carries on.
+        const wrapped=Math.atan2(Math.sin(pivot.rotation.x),Math.cos(pivot.rotation.x));
+        const onFeet=bot.hp&&Math.abs(wrapped)<.35&&Math.abs(Math.cos(pivot.rotation.z))>.9;
+        const flat=onFeet?wrapped:Math.sign(wrapped||1)*Math.PI/2;
+        pivot.rotation.x+=(flat-wrapped)*Math.min(1,dt*6);
+        pivot.rotation.z*=1-Math.min(1,dt*6);
+        b.rest+=dt;
+      } else b.rest=0;
+    }
+    if(bot.hp&&b.rest>1.4)b.rise=.001;
+  }
+
+  /**
+   * Car contact: the car is a rectangle (half length/width around its
+   * centre) and each bot a circle. Touching bots are pushed out; a fast
+   * closing speed launches them as rigid bodies and damages them.
+   * Returns {hits, slow}: names hit and how much the car should slow down.
+   */
+  function collideCar({x,z,heading,speed,halfLength=2.05,halfWidth=.98}) {
+    const hits=[]; let slow=0;
+    const sin=Math.sin(heading), cos=Math.cos(heading);
+    const carVX=sin*speed, carVZ=cos*speed;
+    for(const bot of bots) {
+      if(!bot.model.visible||(!bot.hp&&!bot.body))continue;
+      const p=bot.model.position, scale=bot.profile.scale, radius=.3*scale;
+      if(p.y>groundAt(p.x,p.z)+1.4)continue; // Flying over the roof.
+      const dx=p.x-x, dz=p.z-z;
+      const along=dx*sin+dz*cos, across=dx*cos-dz*sin;
+      const overlapAlong=halfLength+radius-Math.abs(along), overlapAcross=halfWidth+radius-Math.abs(across);
+      if(overlapAlong<=0||overlapAcross<=0)continue;
+      // Contact normal (car → bot) along the axis of least penetration.
+      const front=overlapAlong<overlapAcross;
+      const sAlong=front?Math.sign(along)||1:0, sAcross=front?0:Math.sign(across)||1;
+      const nx=sAlong*sin+sAcross*cos, nz=sAlong*cos-sAcross*sin;
+      const depth=front?overlapAlong:overlapAcross;
+      const own=bot.body?.velocity;
+      const closing=(carVX-(own?.x??0))*nx+(carVZ-(own?.z??0))*nz;
+      // Push the bot out of the car.
+      if(!blocked(p.x+nx*depth,p.z+nz*depth,carObstacle)){p.x+=nx*depth;p.z+=nz*depth;}
+      if(closing<2.5||bot.rammed>0) {
+        if(bot.body&&closing>0){bot.body.velocity.x+=nx*closing;bot.body.velocity.z+=nz*closing;}
+        continue;
+      }
+      bot.rammed=.35;
+      // Launch: carried along with the car, thrown off the bumper and up.
+      impulse.set(carVX*.9+nx*closing*.55,1.4+closing*.33,carVZ*.9+nz*closing*.55);
+      // Tumble about the horizontal axis across the direction of travel, in the bot's own frame.
+      axis.set(impulse.z,0,-impulse.x).normalize().applyAxisAngle(T.Object3D.DEFAULT_UP,-bot.model.rotation.y);
+      // Legs are swept forward, so the head falls back toward the car.
+      tumble.copy(axis).multiplyScalar(-(closing*.9+Math.random()*2));tumble.y=(Math.random()-.5)*6;
+      launch(bot,impulse,tumble);
+      damageBot(bot,Math.round(closing*7),'botHit','car');
+      if(bot.hp)bot.alert=8;
+      hits.push(bot.name+(bot.hp?'':' (nugalėtas)'));
+      slow+=.07*scale;
+    }
+    return {hits,slow:Math.min(.5,slow)};
   }
   return {
     setCourtyardVisible(outdoors,lobby) {
-      for(const bot of bots)bot.model.visible=bot.hp>0 && (bot.model.position.z< -2.5 && bot.student?lobby:outdoors);
+      for(const bot of bots)bot.model.visible=(bot.hp>0||bot.body!==null) && (bot.model.position.z< -2.5 && bot.student?lobby:outdoors);
     },
     setLesson(active){lesson=active;},
     /** Live, visible bots as aim targets: {x, y (body centre), z}. */
@@ -129,28 +257,8 @@ export function createCombat({T, scene, box, oval, groundAt, blocked, playSound=
       }
       return null;
     },
-    /**
-     * A moving car: bots within `radius` of `position` take damage that
-     * scales with speed and get knocked along `heading`. Returns hit names.
-     */
-    ram(position,heading,radius,speed) {
-      const hit=[];
-      for(const bot of bots) {
-        if(!bot.hp||bot.rammed>0)continue;
-        const p=bot.model.position;
-        if(Math.hypot(p.x-position.x,p.z-position.z)>radius+.35*bot.profile.scale)continue;
-        bot.rammed=.6;
-        damageBot(bot,Math.round(Math.abs(speed)*7),'botHit','car');
-        hit.push(bot.name+(bot.hp?'':' (nugalėtas)'));
-        if(!bot.hp)continue;
-        bot.alert=8;bot.stun=Math.max(bot.stun||0,.8);
-        for(const push of [2.2,1.6,1,.5]) {
-          const x=p.x+heading.x*push*Math.sign(speed),z=p.z+heading.z*push*Math.sign(speed);
-          if(!blocked(x,z)){p.x=x;p.z=z;p.y=groundAt(x,z);break;}
-        }
-      }
-      return hit;
-    },
+    collideCar,
+    setCarObstacle(obstacle){carObstacle=obstacle;},
     nearbyReaction(position,type) {
       let count=0;
       const range=type==='gas'?3:8;
@@ -168,11 +276,16 @@ export function createCombat({T, scene, box, oval, groundAt, blocked, playSound=
       tracer.material.opacity=tracerTime/.12;
       for(const bot of bots) {
         const {model}=bot;
+        if(bot.body) {
+          updateBody(bot,dt);
+          if(!bot.hp)bot.respawn-=dt;
+          continue;
+        }
         if(!bot.hp) {
           bot.respawn-=dt;
           if(bot.respawn>0)continue;
           model.position.set(bot.x,groundAt(bot.x,bot.z),bot.z);
-          bot.hp=100;bot.stun=0;bot.name=randomName();bot.bar.draw(100,bot.name);bot.profile=bot.appearance.roll();
+          bot.hp=100;bot.stun=0;bot.body=null;bot.pivot.rotation.set(0,0,0);bot.bar.sprite.visible=true;bot.name=randomName();bot.bar.draw(100,bot.name);bot.profile=bot.appearance.roll();
         }
         if(bot.gas>0) {
           bot.gas-=dt;bot.gasTick-=dt;
