@@ -9,6 +9,14 @@ export function createCollision(T, campus, interior) {
   const groundColliders = exteriorColliders.filter(b => !b.bottom);
   /** Round colliders added at runtime (NPCs). Only the player collides with them. */
   const actors = new Set();
+  /** Round moving obstacles (the car): block the player, bots and props. */
+  const obstacles = new Set();
+  const hitsObstacle = (x, z, ignore) => {
+    for (const obstacle of obstacles) {
+      if (obstacle !== ignore && (x - obstacle.x) ** 2 + (z - obstacle.z) ** 2 < obstacle.radius ** 2) return true;
+    }
+    return false;
+  };
 
   // Trees are checked constantly (bot line of sight, thrown props, foam), so
   // bucket them in a coarse grid instead of scanning all of them.
@@ -42,14 +50,15 @@ export function createCollision(T, campus, interior) {
   const outOfBounds = (x, z) => Math.abs(x) > 63 || Math.abs(z) > 58;
 
   /** Ground-level blocking used by bots, thrown props and effects. */
-  function block(x, z) {
-    if (doorBlocked(x, z)) return true;
+  function block(x, z, ignore = null) {
+    if (doorBlocked(x, z) || hitsObstacle(x, z, ignore)) return true;
     if (inside(x, z)) return hits(interior.floorAt(x).walls, x, z);
     return outOfBounds(x, z) || hits(groundColliders, x, z) || hitsTree(x, z);
   }
   /** Player blocking, which respects height (roofs, the door lintel) and NPCs. */
   function playerBlocked(x, z, y) {
     if (y < 2.8 && doorBlocked(x, z)) return true;
+    if (y < 1.6 && hitsObstacle(x, z, null)) return true;
     for (const actor of actors) {
       if (actor.solid !== false && Math.abs(y - actor.y) < 1.6 && (x - actor.x) ** 2 + (z - actor.z) ** 2 < actor.radius ** 2) return true;
     }
@@ -87,5 +96,11 @@ export function createCollision(T, campus, interior) {
   return {
     inside, groundAt, block, playerBlocked, clearPath, roofAt, cameraDistance, areaOf, hitsTree,
     addActor(actor) { actors.add(actor); return () => actors.delete(actor); },
+    addObstacle(obstacle) { obstacles.add(obstacle); return () => obstacles.delete(obstacle); },
+    /** True if a round body at x/z would overlap a character (NPC). */
+    hitsActor(x, z, radius) {
+      for (const actor of actors) if (actor.solid !== false && (x - actor.x) ** 2 + (z - actor.z) ** 2 < (radius + actor.radius) ** 2) return true;
+      return false;
+    },
   };
 }

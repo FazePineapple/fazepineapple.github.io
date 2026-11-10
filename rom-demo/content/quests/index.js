@@ -30,5 +30,6 @@
 import firstDay from './first-day.js';
 import thirstyCaretaker from './thirsty-caretaker.js';
 import botPractice from './bot-practice.js';
+import secretPhoto from './secret-photo.js';
 
-export const quests = [firstDay, thirstyCaretaker, botPractice];
+export const quests = [firstDay, thirstyCaretaker, botPractice, secretPhoto];

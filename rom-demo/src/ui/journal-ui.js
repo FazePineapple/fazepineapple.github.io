@@ -43,6 +43,23 @@ export function createJournalUI(game) {
         content.append(card);
       }
     }
+    const photos = game.photos.list();
+    if (photos.length) {
+      const heading = document.createElement('h3');
+      heading.textContent = 'Nuotraukos';
+      const grid = document.createElement('div');
+      grid.className = 'photo-grid';
+      for (const photo of photos) {
+        const figure = document.createElement('figure');
+        const image = document.createElement('img');
+        image.src = photo.image; image.alt = photo.subjects.join(', ') || photo.zone;
+        const caption = document.createElement('figcaption');
+        caption.textContent = photo.time + (photo.subjects.length ? ' · ' + photo.subjects.join(', ') : photo.zone ? ' · ' + photo.zone : '');
+        figure.append(image, caption);
+        grid.append(figure);
+      }
+      content.append(heading, grid);
+    }
   }
 
   game.panels.register('journal', {element, onOpen:render, focus:() => $('closeQuestLog')});

@@ -51,7 +51,7 @@ export function createInput(game) {
     KeyJ:() => game.movement.toggleJetpack(),
     KeyC:() => game.movement.toggleClimb(),
     KeyV:() => game.cameraRig.toggleView(),
-    KeyE:() => game.interactions.interact(),
+    KeyE:() => game.interactions.press(),
     KeyF:() => game.actions.useItem(),
     KeyQ:() => game.actions.throwItem(),
     KeyX:() => game.actions.primaryAction(),
@@ -88,8 +88,24 @@ export function createInput(game) {
       if (!event.repeat) pressActions[key]();
     }
   });
-  window.addEventListener('keyup', event => keys.delete(settings.key(event.code)));
+  window.addEventListener('keyup', event => {
+    const key = settings.key(event.code);
+    keys.delete(key);
+    if (key === 'KeyE' && playing()) game.interactions.release();
+  });
   window.addEventListener('blur', release);
+
+  // Mouse wheel cycles the hotbar (one slot per notch, throttled for trackpads).
+  let wheelReadyAt = 0;
+  window.addEventListener('wheel', event => {
+    if (!playing() || !event.deltaY) return;
+    event.preventDefault();
+    const now = performance.now();
+    if (now < wheelReadyAt) return;
+    wheelReadyAt = now + 70;
+    const step = event.deltaY > 0 ? 1 : -1;
+    game.equipment.select((game.equipment.hotbar.selected + step + 9) % 9);
+  }, {passive:false});
 
   canvas.addEventListener('pointerdown', event => {
     if (!playing()) return;
@@ -136,7 +152,10 @@ export function createInput(game) {
   jumpButton.onlostpointercapture = event => touchKeys.delete(event.pointerId);
   jumpButton.onclick = () => { if (!state.jetpack) game.movement.jump(); };
   $('jetButton').onclick = () => game.movement.toggleJetpack();
-  $('pickButton').onclick = () => game.interactions.interact();
+  const pickButton = $('pickButton');
+  pickButton.onpointerdown = event => { capture(pickButton, event.pointerId); game.interactions.press(); };
+  pickButton.onpointerup = () => game.interactions.release();
+  pickButton.onpointercancel = () => game.interactions.cancelHold();
   $('useButton').onclick = () => game.actions.useItem();
   $('throwButton').onclick = () => game.actions.throwItem();
   const attackButton = $('attackButton');

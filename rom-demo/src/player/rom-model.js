@@ -134,7 +134,7 @@ export function buildRom(build, camera) {
   gasCloud.visible = false; scene.add(gasCloud);
 
   return {
-    player, rig, torso, limbs, rightArm, held, drinkProp, jetRig, exhaust, backpack,
+    player, rig, torso, head, limbs, rightArm, held, drinkProp, jetRig, exhaust, backpack,
     firstHands, firstHeld, drops, gasCloud, cloudMaterial,
   };
 }

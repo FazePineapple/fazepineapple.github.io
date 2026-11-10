@@ -1,5 +1,5 @@
 export function createAudio() {
-  let context, output, ambient, enabled=true, masterVolume=1;
+  let context, output, ambient, engine, engineGain, enabled=true, masterVolume=1;
   const voices={
     fart:[['sawtooth',96,37,.38,.13],['triangle',121,51,.23,.09]],
     burp:[['sawtooth',145,61,.26,.12]],
@@ -16,6 +16,11 @@ export function createAudio() {
     clap:[['square',1400,900,.04,.07],['square',1300,800,.04,.07,.18],['square',1450,950,.04,.07,.36],['square',1350,850,.04,.07,.54]],
     cry:[['triangle',440,330,.45,.07],['triangle',415,300,.5,.07,.55],['triangle',400,280,.6,.06,1.15]],
     vomit:[['sawtooth',120,48,.7,.13],['sawtooth',95,40,.55,.1,.35]],
+    chew:[['triangle',190,150,.08,.07],['triangle',170,130,.07,.06,.1]],
+    swish:[['sawtooth',900,240,.12,.035]],
+    shutter:[['square',2400,1800,.03,.06],['square',1600,900,.05,.05,.06]],
+    horn:[['square',392,392,.35,.08],['square',494,494,.35,.06]],
+    crash:[['sawtooth',160,40,.35,.14],['square',90,40,.3,.08]],
     questStart:[['triangle',523,523,.16,.08],['triangle',659,659,.22,.08,.12]],
     questComplete:[['triangle',523,523,.14,.08],['triangle',659,659,.14,.08,.11],['triangle',784,784,.32,.09,.22]],
   };
@@ -39,6 +44,19 @@ export function createAudio() {
   }
   return {
     start,
+    /** Continuous car engine hum; level 0 (off) to 1 (full speed). */
+    engine(level) {
+      if(!context)return;
+      if(!engine && level>0) {
+        engine=context.createOscillator();engine.type='sawtooth';
+        const filter=context.createBiquadFilter();filter.type='lowpass';filter.frequency.value=420;
+        engineGain=context.createGain();engineGain.gain.value=0;
+        engine.connect(filter);filter.connect(engineGain);engineGain.connect(output);engine.start();
+      }
+      if(!engine)return;
+      engine.frequency.setTargetAtTime(48+level*95,context.currentTime,.08);
+      engineGain.gain.setTargetAtTime(level>0?.05+level*.07:0,context.currentTime,.1);
+    },
     ambience(active,indoors=false) {
       if(!context)return;
       ambient.gain.setTargetAtTime(active?(indoors?.04:.19):0,context.currentTime,.16);

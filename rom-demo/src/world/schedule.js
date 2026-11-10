@@ -8,7 +8,7 @@ const clock = minute => String(Math.floor(minute / 60) % 24).padStart(2, '0') + 
  * 'school:opened' / 'school:closed'.
  */
 export function createSchedule(game) {
-  let lastMinute = -1, lesson = false, open = null;
+  let lastMinute = -1, lastHour = -1, lesson = false, open = null;
   const isOpenAt = hour => hour >= schoolHours.open && hour < schoolHours.close;
   const opensAt = clock(schoolHours.open * 60);
 
@@ -28,6 +28,8 @@ export function createSchedule(game) {
         }
         game.npcs?.refreshSchedule();
       }
+      const hour = Math.floor(game.sky.hour());
+      if (hour !== lastHour) { lastHour = hour; game.npcs?.refreshSchedule(); }
       const minute = game.sky.minute();
       if (!playing || minute === lastMinute) return;
       lastMinute = minute;

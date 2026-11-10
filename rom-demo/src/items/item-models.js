@@ -90,6 +90,45 @@ export function createItemModels(build, items) {
       oval(parent,brown[2],0,.145,0,.05,.04,.05);
       oval(parent,brown[1],.01,.18,0,.022,.03,.022);
     },
+    rubberband(parent) {
+      // A ruler-and-peg rubber band shooter.
+      box(0,.1,0,.03,.2,.03,0x7b5534,parent);
+      box(0,.2,.09,.03,.03,.22,0x9a6b42,parent);
+      box(0,.215,.19,.05,.02,.02,0xd8a03a,parent);
+    },
+    glue(parent) {
+      mesh(shared('item:glue', () => new T.CylinderGeometry(.03,.03,.17,10)),0xf2f0d8,0,.085,0,parent);
+      mesh(shared('item:glue-cap', () => new T.CylinderGeometry(.032,.032,.05,10)),0x4f86c6,0,.19,0,parent);
+    },
+    notebook(parent) {
+      box(0,.012,0,.22,.024,.3,0x3f7d5c,parent);
+      box(0,.026,0,.2,.006,.28,0xf4f1e6,parent);
+      for(let i=0;i<7;i++)box(-.112,.02,-.12+i*.04,.012,.03,.012,0xb9c0c2,parent);
+    },
+    scissors(parent) {
+      for(const side of [-1,1]) {
+        box(side*.012,.16,0,.016,.17,.008,0xd3dadb,parent).rotation.z=side*.08;
+        oval(parent,0xd0453f,side*.03,.04,0,.028,.035,.01);
+      }
+    },
+    compass(parent) {
+      for(const side of [-1,1]) box(side*.025,.11,0,.012,.22,.012,0xa8b0b3,parent).rotation.z=side*.14;
+      box(0,.225,0,.03,.03,.02,0x3c4648,parent);
+    },
+    chalk(parent) {
+      mesh(shared('item:chalk', () => new T.CylinderGeometry(.012,.012,.09,8)),0xf7f7f2,0,.012,0,parent).rotation.z=Math.PI/2;
+    },
+    camera(parent) {
+      box(0,.07,0,.16,.1,.07,0x2b2f33,parent);
+      mesh(shared('item:lens', () => new T.CylinderGeometry(.033,.036,.05,14)),0x15181a,0,.07,.055,parent).rotation.x=Math.PI/2;
+      box(.05,.128,0,.03,.016,.03,0xd0453f,parent);
+      box(-.04,.13,0,.04,.02,.04,0xe6e9ea,parent);
+    },
+    oz(parent) {
+      mesh(shared('item:can', () => new T.CylinderGeometry(.04,.04,.15,14)),0x1d2b22,0,.075,0,parent);
+      mesh(shared('item:can-band', () => new T.CylinderGeometry(.041,.041,.05,14)),0x7ee04a,0,.085,0,parent);
+      mesh(shared('item:can-top', () => new T.CylinderGeometry(.036,.04,.01,14)),0xc7ccce,0,.155,0,parent);
+    },
     generic(parent) {
       box(0,.13,0,.26,.26,.26,0xc9b27a,parent);
       box(0,.262,0,.27,.012,.06,0x8b6f45,parent);

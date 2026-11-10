@@ -1,7 +1,7 @@
 import {defaultThrow} from '../../content/items.js';
 import {isBusy} from './state.js';
 
-const fists = {name:'Kumščiai', damage:18, range:2, aim:.42, cooldown:.48};
+const fists = {name:'Kumščiai', damage:18, range:2, aim:.42, cooldown:.48, animation:'punch'};
 
 /**
  * Item actions: the primary (left click / X) action of the held item, using
@@ -45,7 +45,8 @@ export function createActions(game) {
   function primaryAction() {
     const item = equipment.held;
     if (item?.weapon?.spray) return; // Spraying is continuous; see updateSpray.
-    if (item?.weapon?.projectile) shoot(item);
+    if (item?.camera) game.photos.take();
+    else if (item?.weapon?.projectile) shoot(item);
     else if (item?.use) useItem();
     else if (item?.throw && !item.weapon) throwItem();
     else attack();
@@ -56,8 +57,10 @@ export function createActions(game) {
     const item = equipment.held;
     const weapon = item?.weapon ? {name:item.name, ...item.weapon} : fists;
     if (weapon.spray) return;
-    state.attackTime = weapon.cooldown; state.swing = .26;
+    state.attackTime = weapon.cooldown;
+    game.animation.startAttack(weapon.animation ?? (weapon.ranged ? 'recoil' : 'swing'));
     if (weapon.ranged) audio.play('shot');
+    else audio.play('swish');
     game.notice(weapon.name + ' · ' + combat.attack(rom.player.position, state.yaw, weapon, state.pitch));
   }
 
@@ -76,8 +79,8 @@ export function createActions(game) {
     if (item.use.action === 'sit') { placeAndSit(index); return; }
     const id = inventory.take(index);
     game.vitals.applyEffects(item.use.effects);
-    if (item.use.animation === 'drink') {
-      game.animation.startDrink(id);
+    if (item.use.animation) {
+      game.animation.startConsume(id, item.use.animation);
       game.panels.close();
     }
     if (item.use.message) game.notice(item.use.message);
@@ -123,28 +126,38 @@ export function createActions(game) {
     game.bus.emit('item:thrown', {id});
   }
 
-  // Projectiles (straw spitballs): a small recycled pool.
+  // Projectiles (spitballs, rubber bands, glue, paper planes): a recycled pool.
   const shots = [];
   const shotShape = new T.SphereGeometry(1, 7, 5);
-  const previous = new T.Vector3();
+  const planeShape = (() => {
+    // A folded paper plane pointing along +z.
+    const geometry = new T.BufferGeometry();
+    geometry.setAttribute('position', new T.Float32BufferAttribute([0,0,.18, -.13,0,-.12, 0,-.02,-.08,  0,0,.18, 0,-.02,-.08, .13,0,-.12,  0,0,.18, 0,-.06,-.1, 0,-.02,-.08], 3));
+    geometry.computeVertexNormals();
+    return geometry;
+  })();
+  const previous = new T.Vector3(), steer = new T.Vector3(), forwardAxis = new T.Vector3(0, 0, 1);
   function shoot(item) {
     if (state.attackTime > 0 || state.climbing || isBusy(state)) return;
     const {projectile, damage, cooldown} = item.weapon;
     state.attackTime = cooldown;
-    let shot = shots.find(entry => !entry.life);
+    game.animation.startAttack('recoil');
+    const plane = projectile.model === 'plane';
+    let shot = shots.find(entry => !entry.life && entry.plane === plane);
     if (!shot) {
-      shot = {model:new T.Mesh(shotShape, new T.MeshLambertMaterial({color:projectile.color ?? 0xffffff})), velocity:new T.Vector3(), life:0};
+      shot = {plane, model:new T.Mesh(plane ? planeShape : shotShape, new T.MeshLambertMaterial({color:projectile.color ?? 0xffffff, side:T.DoubleSide})), velocity:new T.Vector3(), life:0};
       scene.add(shot.model);
       shots.push(shot);
     }
-    shot.model.scale.setScalar(projectile.size ?? .06);
+    shot.model.scale.setScalar(plane ? 1 : projectile.size ?? .06);
     shot.model.material.color.setHex(projectile.color ?? 0xffffff);
     shot.model.position.copy(rom.player.position).add(aim.set(0, 1.62, 0)).addScaledVector(aimDirection(), .45);
     shot.velocity.copy(aimDirection()).multiplyScalar(projectile.speed);
     assistAim(shot.model.position, shot.velocity, projectile.gravity ?? 0);
     shot.damage = damage; shot.gravity = projectile.gravity ?? 0; shot.name = item.name;
-    shot.life = 2.5; shot.model.visible = true;
-    audio.play('spit');
+    shot.stun = projectile.stun ?? 0; shot.homing = projectile.homing ?? 0; shot.speed = projectile.speed;
+    shot.life = projectile.life ?? 2.5; shot.model.visible = true;
+    audio.play(plane ? 'swish' : 'spit');
   }
   function updateShots(dt) {
     for (const shot of shots) {
@@ -152,11 +165,24 @@ export function createActions(game) {
       shot.life = Math.max(0, shot.life - dt);
       const p = shot.model.position;
       previous.copy(p);
+      if (shot.homing) {
+        // Paper planes turn toward the nearest bot ahead.
+        let best = null, bestDistance = 25;
+        for (const target of combat.targets()) {
+          const distance = Math.hypot(target.x - p.x, target.y - p.y, target.z - p.z);
+          if (distance < bestDistance) { bestDistance = distance; best = target; }
+        }
+        if (best) {
+          steer.set(best.x - p.x, best.y - p.y, best.z - p.z).normalize().multiplyScalar(shot.speed);
+          shot.velocity.lerp(steer, Math.min(1, shot.homing * dt)).setLength(shot.speed);
+        }
+      }
       shot.velocity.y -= shot.gravity * dt;
       p.addScaledVector(shot.velocity, dt);
-      const hit = combat.hitWithProp(previous, p, shot.damage, {source:'shot', radius:.05});
+      if (shot.plane) shot.model.quaternion.setFromUnitVectors(forwardAxis, steer.copy(shot.velocity).normalize());
+      const hit = combat.hitWithProp(previous, p, shot.damage, {source:'shot', radius:shot.plane ? .15 : .05, stun:shot.stun});
       if (hit) {
-        game.notice(shot.name + ' · ' + hit.name + (hit.hp ? ' · ' + hit.hp + ' GY' : ' nugalėtas'));
+        game.notice(shot.name + ' · ' + hit.name + (hit.stunned && hit.hp ? ' prilipo!' : hit.hp ? ' · ' + hit.hp + ' GY' : ' nugalėtas'));
         shot.life = 0;
       }
       if (p.y < collision.groundAt(p.x, p.z) || (p.y < 11 && collision.block(p.x, p.z))) shot.life = 0;
@@ -219,6 +245,9 @@ export function createActions(game) {
   function update(dt, sprayHeld) {
     state.attackTime = Math.max(0, state.attackTime - dt);
     state.swing = Math.max(0, state.swing - dt);
+    // Automatic weapons keep firing while the button is held.
+    const held = equipment.held;
+    if (sprayHeld && held?.weapon?.auto && !state.attackTime) shoot(held);
     updateSpray(dt, sprayHeld);
     updateShots(dt);
   }

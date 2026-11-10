@@ -22,7 +22,7 @@ export function createCameraRig(game) {
       const angle = T.MathUtils.clamp(.33 + state.pitch * .28, .05, .65);
       direction.set(0, Math.sin(angle), Math.cos(angle)).applyAxisAngle(UP, state.yaw).normalize();
       ray.set(target, direction);
-      const distance = collision.cameraDistance(ray, target, indoors ? 3.4 : camera.aspect < .65 ? 7.2 : 5.9, indoors, position.x);
+      const distance = collision.cameraDistance(ray, target, indoors ? 3.4 : state.vehicle ? 8.5 : camera.aspect < .65 ? 7.2 : 5.9, indoors, position.x);
       camera.position.copy(wanted.copy(target).addScaledVector(direction, distance));
       if (indoors) camera.position.y = Math.min(camera.position.y, ceiling());
       camera.lookAt(wanted.copy(target).addScaledVector(aimVector, 3));

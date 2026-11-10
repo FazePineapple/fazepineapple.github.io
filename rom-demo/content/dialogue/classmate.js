@@ -1,9 +1,16 @@
 /** Klasioko (classmate) dialogue. */
+const rumorChoice = {
+  text:'Kokie naujausi gandai?', next:'rumor',
+  if:api => !api.isQuestActive('secret-photo') && !api.isQuestDone('secret-photo'),
+};
+
 export default {
   entry(api) {
     if (api.questStep('first-day') === 'meet-classmate') return 'hello';
     if (!api.isQuestDone('first-day')) return 'early';
     if (api.questStep('bot-practice') === 'report') return 'won';
+    if (api.questStep('secret-photo') === 'show') return 'reveal';
+    if (api.questStep('secret-photo') === 'photo') return 'waiting-photo';
     if (api.isQuestActive('bot-practice')) return 'practising';
     if (!api.isQuestDone('bot-practice')) return 'challenge';
     return 'idle';
@@ -26,11 +33,28 @@ export default {
       text:'Lažinuosi, kad nepaguldysi penkių treniruočių robotų. Įrodysi, kad klystu?',
       choices:[
         {text:'Žiūrėk.', do:api => api.startQuest('bot-practice'), end:true},
+        rumorChoice,
         {text:'Ne dabar.', end:true},
       ],
     },
-    practising: {text:'Dar skaičiuoju… pirmyn!', choices:[{text:'Gerai.', end:true}]},
+    practising: {text:'Dar skaičiuoju… pirmyn!', choices:[rumorChoice, {text:'Gerai.', end:true}]},
     won: {text:'Penki? Rimtai? Gerai jau, laimėjai. Še, imk mano sultis.', choices:[{text:'Malonu turėti reikalų.', end:true}]},
-    idle: {text:['Gerai, gerai, tu laimėjai.', 'Girdėjai skambutį?'], choices:[{text:'Iki.', end:true}]},
+    rumor: {
+      text:'Sako, fizikos mokytojas ir muzikos mokytoja po pamokų slapta susitinka už mokyklos… Nufotografuok juos! Tik žiūrėk, kad nepastebėtų.',
+      choices:[
+        {text:'Duok fotoaparatą.', end:true,
+          do:api => { api.startQuest('secret-photo'); if (!api.has('camera')) api.give('camera'); }},
+        {text:'Ne mano reikalas.', end:true},
+      ],
+    },
+    'waiting-photo': {
+      text:'Na? Jie susitinka tarp 14 ir 18 valandos už mokyklos. Fotografuok iš toliau ir iš šono.',
+      choices:[{text:'Einu.', end:true}],
+    },
+    reveal: {
+      text:'Nesąmonė… Tai tikrai jie! Ši nuotrauka – aukso vertės. Imk, nusipelnei.',
+      choices:[{text:'Tik niekam nesakyk.', end:true}],
+    },
+    idle: {text:['Gerai, gerai, tu laimėjai.', 'Girdėjai skambutį?'], choices:[rumorChoice, {text:'Iki.', end:true}]},
   },
 };

@@ -3,7 +3,11 @@
  * restroom, a chair, a character to talk to, or an item to pick up — and runs
  * it. To add a new kind of interaction, add a provider to `providers`: a
  * function returning {label, run} or null. Earlier providers win.
+ * An action may also have `hold:{label, run}`: tapping E runs `run`,
+ * holding E for half a second runs `hold.run` instead.
  */
+const HOLD_TIME = .45;
+
 export function createInteractions(game) {
   const {state, rom, interior, collision, items} = game;
 
@@ -21,6 +25,9 @@ export function createInteractions(game) {
   }
 
   const providers = [
+    function driving() {
+      return state.vehicle ? {id:'exit-car', label:'Išlipti iš automobilio', run:() => game.vehicles.exit()} : null;
+    },
     function seated() {
       if (!state.seat) return null;
       return {id:'chair', label:'Pasiimti kėdę', run:() => game.pickups.pickUp(state.seat.pickup)};
@@ -44,9 +51,13 @@ export function createInteractions(game) {
       const npc = game.npcs.nearest();
       return npc && {label:'Kalbėtis: ' + npc.def.name, run:() => game.dialogue.open(npc)};
     },
+    function car() {
+      return game.vehicles.near() && {id:'car', label:'Sėsti į automobilį', run:() => game.vehicles.enter()};
+    },
     function sit() {
       const chair = game.seating.nearestSeat();
-      return chair && {id:'sit', label:'Sėstis ant kėdės', run:() => game.seating.sit(chair)};
+      return chair && {id:'sit', label:'Sėstis ant kėdės', run:() => game.seating.sit(chair),
+        hold:{label:'paimti kėdę', run:() => game.pickups.pickUp(chair)}};
     },
     function pickup() {
       const item = game.pickups.nearest(2.25, entry => !items[entry.id].sit);
@@ -63,9 +74,36 @@ export function createInteractions(game) {
     return null;
   }
 
+  // Tap-or-hold handling for E (and the touch Interact button).
+  let holding = null;
+  function press() {
+    const action = nearest();
+    if (!action) return;
+    if (action.hold) holding = {action, time:0};
+    else action.run();
+  }
+  function release() {
+    if (holding) holding.action.run();
+    holding = null;
+  }
+  function update(dt) {
+    if (!holding) return;
+    holding.time += dt;
+    if (holding.time < HOLD_TIME) return;
+    const {action} = holding;
+    holding = null;
+    action.hold.run();
+  }
+
   return {
     providers,
     nearest,
+    press,
+    release,
+    update,
+    cancelHold() { holding = null; },
+    /** 0..1 while E is being held on an action with a hold option. */
+    get holdProgress() { return holding ? Math.min(1, holding.time / HOLD_TIME) : 0; },
     interact() { nearest()?.run(); },
     changeFloor,
   };

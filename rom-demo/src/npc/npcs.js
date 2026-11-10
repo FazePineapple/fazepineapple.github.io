@@ -28,7 +28,9 @@ export function createNpcs(game) {
   /** Characters with hours:'school' (the default) are only around while the school is open. */
   function applySchedule(npc) {
     const hours = npc.def.hours ?? 'school';
-    npc.present = hours === 'always' || game.schedule.isSchoolOpen();
+    const hour = game.sky.hour();
+    npc.present = hours === 'always' ||
+      (Array.isArray(hours) ? hour >= hours[0] && hour < hours[1] : game.schedule.isSchoolOpen());
     npc.actor.solid = npc.present;
     if (!npc.present) npc.model.root.visible = false;
   }
@@ -48,7 +50,7 @@ export function createNpcs(game) {
       for (const arm of arms) arm.rotation.x = Math.sin(npc.phase * 1.7) * .03;
       toPlayer.copy(player).sub(root.position);
       const distance = Math.hypot(toPlayer.x, toPlayer.z);
-      const wanted = distance < 6 ? Math.atan2(toPlayer.x, toPlayer.z) : npc.facing;
+      const wanted = distance < 6 && !npc.def.ignorePlayer ? Math.atan2(toPlayer.x, toPlayer.z) : npc.facing;
       const turn = Math.atan2(Math.sin(wanted - root.rotation.y), Math.cos(wanted - root.rotation.y));
       root.rotation.y += turn * (1 - Math.exp(-dt * 4));
       head.rotation.y = T.MathUtils.lerp(head.rotation.y, 0, .1);

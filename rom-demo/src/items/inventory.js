@@ -16,6 +16,12 @@ export function createInventory(items, size = 36) {
     return true;
   }
 
+  /** Whether one more id fits (an existing stack or an empty slot). */
+  function canAdd(id) {
+    if (!items[id] || items[id].equipment) return false;
+    return slots.some(slot => slot === null || (slot.id === id && slot.count < stackOf(id)));
+  }
+
   function take(index) {
     const slot = slots[index];
     if (!slot) return null;
@@ -31,6 +37,7 @@ export function createInventory(items, size = 36) {
     slots,
     size,
     add,
+    canAdd,
     take,
     count,
     has:(id, amount = 1) => count(id) >= amount,

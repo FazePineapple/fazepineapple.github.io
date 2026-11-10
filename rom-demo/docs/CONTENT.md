@@ -122,6 +122,8 @@ Main story chapters are just quests with `kind:'main'`; chain them with
 | `player:sat` / `player:stood` | `{item}` / `{}` — chairs        |
 | `player:pooped` / `player:vomited` | `{}`                      |
 | `school:opened` / `school:closed` | `{}` at opening hours        |
+| `photo:taken`      | `{subjects, noticed, bots, zone}` — subjects/noticed are character ids |
+| `vehicle:entered` / `vehicle:exited` | `{}` — the car          |
 | `player:moved`     | `{distance, running}` every frame Rom walks |
 | `time:minute`      | `{minute}` in-game minute of the day     |
 | `school:bell`      | `{lesson, starts}`                       |
@@ -144,6 +146,9 @@ Quest hooks, `when` checks and dialogue receive `api`
 Characters and spawns can take `requires:{flag}`, `{quest}` (started or done)
 or `{questDone}` to appear only after story progress.
 
+Characters can also keep their own hours with `hours:[14, 18]` (in-game hours),
+and `ignorePlayer:true` keeps them facing their own way.
+
 Characters go home at night by default (`hours:'school'`, using
 `schoolHours` in `content/schedule.js`), so quests that need them wait until
 morning; the HUD tells the player. Use `hours:'always'` for someone who is
@@ -159,4 +164,11 @@ always around.
 - **Projectile weapon** (like the straw): `weapon:{damage, cooldown,
   projectile:{speed, gravity, size, color}}`.
 - **Furniture** (like the chair): `sit:{height}` plus `use:{verb, action:'sit'}`.
-  E sits on it in the world; F/left click places it from the backpack.
+  E sits on it in the world, holding E picks it up; F/left click places it from the backpack.
+- **Weapons** can set `animation` (`stab`, `punch`, `swing`, `recoil`), `auto:true`
+  (fires while held) and projectile extras `stun` (seconds), `homing` (turn rate),
+  `life` and `model:'plane'`.
+- **Camera**: `camera:true` takes photos. Quests listen for `photo:taken` and can
+  require characters in `subjects` and none in `noticed` (stealth). Characters with
+  `watchful:true` notice photos taken within 6 m or from in front of them.
+- **Eating**: `use.animation:'eat'` (bites) or `'drink'`; `{peeIn:n}` forces a pee after n s.

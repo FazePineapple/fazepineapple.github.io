@@ -6,18 +6,18 @@ export function createPlayerState() {
     // Vitals.
     health:100, stamina:100, exhausted:false, recovery:0,
     meters:{bladder:0, gas:0, bowel:0, stomach:0},
-    timers:{dizzy:0, gas:0, bladder:0},
-    pressureTime:0, gasDelay:0, puffTime:0, nausea:0,
+    timers:{dizzy:0, gas:0, bladder:0, energy:0},
+    pressureTime:0, gasDelay:0, puffTime:0, nausea:0, peeCountdown:0,
     // Movement.
     airborne:false, verticalSpeed:0, landingTime:0,
     moving:false, running:false, thrust:false,
-    climbing:null, jetpack:false, seat:null,
+    climbing:null, jetpack:false, seat:null, vehicle:null,
     equipment:{jetpack:false},
     // Actions and animation.
-    deathTime:0, attackTime:0, swing:0,
+    deathTime:0, attackTime:0, swing:0, attack:null,
     emote:null, emoteTime:0, emoteMidpoint:false, pickupMotion:null, drinkMotion:null,
   };
 }
 
 /** True while an animation or state prevents starting another action. */
-export const isBusy = state => Boolean(state.deathTime || state.emote || state.pickupMotion || state.drinkMotion);
+export const isBusy = state => Boolean(state.deathTime || state.emote || state.pickupMotion || state.drinkMotion || state.vehicle);

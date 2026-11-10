@@ -31,4 +31,13 @@ export const spawns = [
   {id:'chair-courtyard', item:'chair', x:-7, z:24.5, facing:Math.PI},
   {id:'chair-benches', item:'chair', x:-10.5, z:3, facing:0},
   {id:'chair-classroom', item:'chair', floor:0, x:-11, z:3, facing:Math.PI / 2},
+  {id:'oz-courtyard', item:'oz', x:-14, z:16},
+  {id:'oz-hall', item:'oz', floor:0, x:9, z:-1},
+  {id:'rubberband', item:'rubberband', x:-2, z:19},
+  {id:'chalk-courtyard', item:'chalk', x:-9.5, z:12},
+  {id:'glue', item:'glue', floor:0, x:-10, z:-3},
+  {id:'scissors', item:'scissors', floor:0, x:-7, z:-3},
+  {id:'notebook', item:'notebook', floor:0, x:-12, z:-1},
+  {id:'compass', item:'compass', floor:1, x:-9, z:6},
+  {id:'chalk-library', item:'chalk', floor:1, x:-8, z:-6},
 ];

@@ -67,8 +67,11 @@ export function createMinimap(game) {
     map.fillStyle = '#7ec8ff';
     for (const npc of game.npcs.all()) {
       const p = npc.model.root.position;
-      if (!game.collision.inside(p.x, p.z, p.y)) map.fillRect(mx(p.x) - 2, mz(p.z) - 2, 4, 4);
+      if (npc.present && !game.collision.inside(p.x, p.z, p.y)) map.fillRect(mx(p.x) - 2, mz(p.z) - 2, 4, 4);
     }
+    const car = game.vehicles.position;
+    map.save(); map.translate(mx(car.x), mz(car.z)); map.rotate(-game.vehicles.heading);
+    map.fillStyle = '#ffb347'; map.fillRect(-1.5, -3, 3, 6); map.restore();
     if (waypoint) star(clampX(mx(waypoint.x)), clampY(mz(waypoint.z)));
     map.save(); map.translate(mx(x), mz(z)); map.rotate(-rom.player.rotation.y);
     map.fillStyle = '#d6fa87'; map.beginPath(); map.moveTo(0, 7); map.lineTo(-4, -4); map.lineTo(4, -4); map.fill(); map.restore();

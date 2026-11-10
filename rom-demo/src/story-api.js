@@ -7,7 +7,7 @@
  *   Flags      setFlag(f)  clearFlag(f)  hasFlag(f)
  *   Quests     startQuest(id)  isQuestActive(id)  isQuestDone(id)  questStep(id)
  *   Player     heal(n)  area()  zone()  hasEquipment('jetpack')
- *   World      time()  minute()  isLesson()
+ *   World      time()  hour()  minute()  isLesson()
  *   Messages   notice(text)  emit('story:something', payload)
  */
 export function createStoryApi(game) {
@@ -43,6 +43,7 @@ export function createStoryApi(game) {
     hasEquipment:name => Boolean(game.state.equipment[name]),
     time:() => game.sky.time(),
     minute:() => game.sky.minute(),
+    hour:() => game.sky.hour(),
     isLesson:() => game.schedule.isLesson(),
     notice:text => game.hud.toast(text),
     emit:(type, payload = {}) => game.bus.emit(type, payload),

@@ -11,6 +11,7 @@ export function createMovement(game) {
   const position = rom.player.position;
 
   function jump() {
+    if (state.vehicle) return; // Space is the handbrake while driving.
     if (state.seat) { game.seating.stand(); return; }
     if (state.climbing) { toggleClimb(); return; }
     if (state.airborne || state.emote || state.deathTime || state.stamina < 9) return;
@@ -21,7 +22,7 @@ export function createMovement(game) {
   function toggleClimb() {
     if (state.climbing) { state.climbing = null; state.airborne = true; state.verticalSpeed = 0; return; }
     const {x, y, z} = position;
-    if (collision.inside(x, z, y) || state.seat || state.emote || state.pickupMotion || state.deathTime || state.stamina < 8) return;
+    if (collision.inside(x, z, y) || state.vehicle || state.seat || state.emote || state.pickupMotion || state.deathTime || state.stamina < 8) return;
     let best = .95, grip = null;
     for (const b of campus.buildings) {
       if (y >= b.h + .10) continue;
@@ -66,12 +67,13 @@ export function createMovement(game) {
   }
 
   function toggleJetpack() {
-    if (collision.inside(position.x, position.z, position.y) || state.seat || state.climbing || state.emote || state.pickupMotion || state.deathTime) return;
+    if (collision.inside(position.x, position.z, position.y) || state.vehicle || state.seat || state.climbing || state.emote || state.pickupMotion || state.deathTime) return;
     if (!state.equipment.jetpack) { game.notice('Pirmiau surask reaktyvinę kuprinę lauke'); return; }
     setJetpack(!state.jetpack);
   }
 
   function update(dt, input) {
+    if (state.vehicle) { state.moving = false; state.running = false; game.vehicles.update(dt, input); return; }
     const forward = input.axis('KeyW', 'ArrowUp', 'KeyS', 'ArrowDown');
     const strafe = input.axis('KeyD', 'ArrowRight', 'KeyA', 'ArrowLeft');
     if (state.seat) {
@@ -96,7 +98,8 @@ export function createMovement(game) {
     const posing = state.climbing || state.pickupMotion || state.drinkMotion || (state.emote && state.emote !== 'fart');
     movement.set(posing ? 0 : strafe, 0, posing ? 0 : -forward).normalize().applyAxisAngle(UP, state.yaw);
     const x = position.x, z = position.z;
-    const step = (running ? 7.6 : 4.05) * dt;
+    const energized = state.timers.energy > 0;
+    const step = (running ? (energized ? 9.2 : 7.6) : 4.05) * dt;
     if (!collision.playerBlocked(x + movement.x * step, z, position.y)) position.x += movement.x * step;
     if (!collision.playerBlocked(position.x, z + movement.z * step, position.y)) position.z += movement.z * step;
     const travelled = Math.hypot(position.x - x, position.z - z);
@@ -117,7 +120,9 @@ export function createMovement(game) {
       }
     } else if (!state.climbing) position.y = floor;
 
-    if (running && moving) {
+    if (running && moving && energized) {
+      state.stamina = Math.min(100, state.stamina + 10 * dt);
+    } else if (running && moving) {
       state.stamina = Math.max(0, state.stamina - 21 * dt); state.recovery = .7;
       if (state.stamina === 0) state.exhausted = true;
     } else if (!state.climbing && !thrust) {

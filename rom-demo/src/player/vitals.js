@@ -19,6 +19,8 @@ export function createVitals(game) {
       }
       if (effect.health) state.health = Math.min(100, state.health + effect.health);
       if (effect.timer) timers[effect.timer] = effect.seconds;
+      // {peeIn:n}: Rom cannot hold it and starts peeing where he stands after n seconds.
+      if (effect.peeIn) state.peeCountdown = effect.peeIn;
       // The stomach may overflow past 100 for a moment: that is what triggers vomiting.
       if (effect.meter === 'stomach') meters.stomach = Math.max(0, meters.stomach + effect.add);
       else if (effect.meter) meters[effect.meter] = clampMeter(meters[effect.meter] + effect.add);
@@ -143,6 +145,16 @@ export function createVitals(game) {
     state.gasDelay = Math.max(0, state.gasDelay - dt);
     if (timers.gas) meters.gas = Math.min(100, meters.gas + dt * 4);
     meters.stomach = Math.max(0, meters.stomach - dt * .8);
+    if (state.peeCountdown) {
+      state.peeCountdown = Math.max(0, state.peeCountdown - dt);
+      if (!state.peeCountdown) {
+        if (state.seat) game.seating.stand();
+        if (state.vehicle) game.vehicles.exit();
+        meters.bladder = Math.max(meters.bladder, 60);
+        if (game.animation.startEmote('pee', {force:true})) game.notice('Nebeišlaikė!');
+        else state.peeCountdown = .3;
+      }
+    }
     if (state.nausea) {
       state.nausea = Math.max(0, state.nausea - dt);
       if (!state.nausea && !game.animation.startEmote('vomit', {force:true})) state.nausea = .3;
@@ -161,6 +173,8 @@ export function createVitals(game) {
     }
     updateVomit(dt);
     game.hud.setEffects([
+      timers.energy && 'Energija!',
+      state.peeCountdown && 'Labai reikia į tualetą!',
       timers.dizzy && 'Svaigsta galva',
       meters.gas >= 32 && 'Pučia pilvą',
       meters.stomach >= 80 && 'Pilnas skrandis',
@@ -171,7 +185,7 @@ export function createVitals(game) {
   function reset() {
     for (const key of Object.keys(timers)) timers[key] = 0;
     for (const key of Object.keys(meters)) meters[key] = 0;
-    state.pressureTime = 0; state.gasDelay = 0; state.puffTime = 0; state.nausea = 0;
+    state.pressureTime = 0; state.gasDelay = 0; state.puffTime = 0; state.nausea = 0; state.peeCountdown = 0;
     rom.gasCloud.visible = false;
     spew = 0;
     for (const chunk of chunks) { chunk.life = 0; chunk.mesh.visible = false; }

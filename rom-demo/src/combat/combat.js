@@ -107,9 +107,10 @@ export function createCombat({T, scene, box, oval, groundAt, blocked, playSound=
     /**
      * Hits the first bot whose body (a capsule from its feet to the top of
      * its head) the segment from→to passes through. Returns the bot's
-     * name and remaining HP, or null. `options.stink` makes it cough.
+     * name and remaining HP, or null. `options.stink` makes it cough and
+     * `options.stun` (seconds) glues it in place.
      */
-    hitWithProp(from,to,damage,{source='throw',stink=false,radius=.12}={}) {
+    hitWithProp(from,to,damage,{source='throw',stink=false,stun=0,radius=.12}={}) {
       for(const bot of bots) {
         if(!bot.hp)continue;
         const base=bot.model.position, scale=bot.profile.scale;
@@ -121,11 +122,34 @@ export function createCombat({T, scene, box, oval, groundAt, blocked, playSound=
           if(y<bottom||y>top||Math.hypot(x-base.x,z-base.z)>reach)continue;
           damageBot(bot,damage,stink?'cough':'botHit',source);
           if(stink){bot.gas=2.4;bot.gasTick=.6;}
+          if(stun)bot.stun=Math.max(bot.stun||0,stun);
           if(bot.hp)bot.alert=7;
-          return {name:bot.name,hp:bot.hp};
+          return {name:bot.name,hp:bot.hp,stunned:Boolean(stun)};
         }
       }
       return null;
+    },
+    /**
+     * A moving car: bots within `radius` of `position` take damage that
+     * scales with speed and get knocked along `heading`. Returns hit names.
+     */
+    ram(position,heading,radius,speed) {
+      const hit=[];
+      for(const bot of bots) {
+        if(!bot.hp||bot.rammed>0)continue;
+        const p=bot.model.position;
+        if(Math.hypot(p.x-position.x,p.z-position.z)>radius+.35*bot.profile.scale)continue;
+        bot.rammed=.6;
+        damageBot(bot,Math.round(Math.abs(speed)*7),'botHit','car');
+        hit.push(bot.name+(bot.hp?'':' (nugalėtas)'));
+        if(!bot.hp)continue;
+        bot.alert=8;bot.stun=Math.max(bot.stun||0,.8);
+        for(const push of [2.2,1.6,1,.5]) {
+          const x=p.x+heading.x*push*Math.sign(speed),z=p.z+heading.z*push*Math.sign(speed);
+          if(!blocked(x,z)){p.x=x;p.z=z;p.y=groundAt(x,z);break;}
+        }
+      }
+      return hit;
     },
     nearbyReaction(position,type) {
       let count=0;
@@ -148,7 +172,7 @@ export function createCombat({T, scene, box, oval, groundAt, blocked, playSound=
           bot.respawn-=dt;
           if(bot.respawn>0)continue;
           model.position.set(bot.x,groundAt(bot.x,bot.z),bot.z);
-          bot.hp=100;bot.name=randomName();bot.bar.draw(100,bot.name);bot.profile=bot.appearance.roll();
+          bot.hp=100;bot.stun=0;bot.name=randomName();bot.bar.draw(100,bot.name);bot.profile=bot.appearance.roll();
         }
         if(bot.gas>0) {
           bot.gas-=dt;bot.gasTick-=dt;
@@ -156,6 +180,13 @@ export function createCombat({T, scene, box, oval, groundAt, blocked, playSound=
           if(!bot.hp)continue;
         }
         const p=model.position;
+        bot.rammed=Math.max(0,(bot.rammed||0)-dt);
+        if(bot.stun>0) {
+          // Glued or knocked down: no walking and no attacks.
+          bot.stun=Math.max(0,bot.stun-dt);
+          bot.legs.forEach(leg=>leg.rotation.x=0);
+          continue;
+        }
         bot.alert=Math.max(0,bot.alert-dt);
         bot.cooldown=Math.max(0,bot.cooldown-dt);
         bot.coughTime=Math.max(0,bot.coughTime-dt);

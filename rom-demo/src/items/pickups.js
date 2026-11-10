@@ -63,14 +63,18 @@ export function createPickups(game) {
     if (!pickup || state.pickupMotion || state.drinkMotion || state.emote || state.deathTime) return false;
     if (pickup === state.seat?.pickup) game.seating.stand();
     const item = items[pickup.id];
-    if (item.equipment) state.equipment[item.equipment] = true;
-    else if (!inventory.add(pickup.id)) { game.notice('Kuprinė pilna'); return false; }
-    game.notice(item.pickupMessage ?? 'Paimta: ' + item.name);
-    game.animation.startPickup(pickup.model);
+    if (!item.equipment && !inventory.canAdd(pickup.id)) { game.notice('Kuprinė pilna'); return false; }
     if (pickup.spawnId) collected.add(pickup.spawnId);
     remove(pickup);
+    // The item reaches the inventory (and Rom's hand) only when the hand closes on it.
+    game.animation.startPickup(pickup.model, () => {
+      if (item.equipment) state.equipment[item.equipment] = true;
+      else if (!inventory.add(pickup.id)) spawn(pickup.id, rom.player.position.x, rom.player.position.z);
+      game.notice(item.pickupMessage ?? 'Paimta: ' + item.name);
+      game.equipment.refresh();
+      game.bus.emit('item:picked', {id:pickup.id, spawnId:pickup.spawnId});
+    });
     game.equipment.refresh();
-    game.bus.emit('item:picked', {id:pickup.id, spawnId:pickup.spawnId});
     return true;
   }
 

@@ -13,7 +13,7 @@ export function createAnimation(game) {
 
   function startEmote(name, options = {}) {
     const def = emotes[name];
-    if (!def || state.airborne || state.deathTime || state.seat) return false;
+    if (!def || state.airborne || state.deathTime || state.seat || state.vehicle) return false;
     if (state.emote && !options.force) return false;
     if (def.canStart && !def.canStart(game, options)) return false;
     state.emote = name; state.emoteTime = 0; state.emoteMidpoint = false; state.swing = 0;
@@ -77,13 +77,71 @@ export function createAnimation(game) {
     if (state.swing) rightArm.rotation.x = -Math.sin(state.swing / .26 * Math.PI) * 1.8;
     torso.rotation.set(.22 * fall, 0, 0);
     torso.position.y = (state.moving ? Math.abs(Math.sin(state.stride)) * .045 : 0) - landing * .18;
+    rom.held.rotation.set(0, 0, 0);
+    if (state.attack) poseAttack();
   }
 
-  function startPickup(model) {
+  // Attack animations by weapon `animation`: 'stab' (dagger), 'punch' (fists),
+  // 'swing' (other melee) and 'recoil' (blaster and other ranged weapons).
+  const attackDurations = {stab:.42, punch:.3, swing:.36, recoil:.25};
+  function startAttack(type = 'swing') {
+    state.attack = {type, time:0, duration:attackDurations[type] ?? .36};
+    state.swing = 0;
+  }
+  function poseAttack() {
+    const {type, time, duration} = state.attack;
+    const t = Math.min(1, time / duration);
+    const first = rom.firstHeld, hands = rom.firstHands;
+    if (type === 'stab') {
+      // Wind up (pull the blade back and turn), then lunge forward.
+      const wind = t < .35 ? Math.sin(t / .35 * Math.PI / 2) : Math.max(0, 1 - (t - .35) / .15);
+      const thrust = t >= .35 ? Math.sin(Math.min(1, (t - .35) / .5) * Math.PI) : 0;
+      rightArm.rotation.x = .75 * wind - 1.65 * thrust;
+      rightArm.rotation.z = -.25 * thrust;
+      rom.held.rotation.x = -1.35 * thrust;
+      torso.rotation.y = -.4 * wind + .35 * thrust;
+      torso.rotation.x += .18 * thrust;
+      limbs[0].arm.rotation.x = .4 * thrust;
+      first.position.z = -.69 - .32 * thrust + .12 * wind;
+      first.rotation.x = -.6 * thrust;
+      hands.position.z = -.18 * thrust;
+    } else if (type === 'punch') {
+      const jab = Math.sin(t * Math.PI);
+      rightArm.rotation.x = -1.6 * jab;
+      torso.rotation.y = .3 * jab;
+      hands.position.z = -.22 * jab;
+    } else if (type === 'recoil') {
+      const kick = t < .2 ? t / .2 : 1 - (t - .2) / .8;
+      rightArm.rotation.x = -1.45 + .35 * kick;
+      first.position.z = -.69 + .08 * kick;
+      first.rotation.x = .25 * kick;
+    } else {
+      const arc = Math.sin(t * Math.PI);
+      rightArm.rotation.x = -1.9 * arc;
+      rightArm.rotation.z = (t - .5) * -1.4 * arc;
+      torso.rotation.y = .35 * (t - .5) * arc * 2;
+      first.rotation.z = (t - .5) * 1.2 * arc;
+    }
+  }
+  function updateAttack(dt) {
+    if (!state.attack) return;
+    state.attack.time += dt;
+    if (state.attack.time < state.attack.duration) return;
+    state.attack = null;
+    rom.firstHeld.position.z = -.69; rom.firstHeld.rotation.set(0, 0, 0);
+    rom.firstHands.position.z = 0;
+  }
+
+  /**
+   * Reach down and take an item. `onGrab` runs when the hand closes on it, so
+   * the item only enters the inventory (and Rom's hand) at that moment.
+   */
+  function startPickup(model, onGrab = null) {
     const from = model.position.clone();
     const body = rom.player;
     const offset = Math.atan2(from.x - body.position.x, from.z - body.position.z) - body.rotation.y;
-    state.pickupMotion = {model, from, turn:Math.atan2(Math.sin(offset), Math.cos(offset)), time:0};
+    state.pickupMotion = {model, from, onGrab, turn:Math.atan2(Math.sin(offset), Math.cos(offset)), time:0};
+    rom.held.visible = false; // Empty hand while reaching.
   }
 
   function updatePickup(dt) {
@@ -101,24 +159,57 @@ export function createAnimation(game) {
       motion.model.position.lerpVectors(motion.from, handPoint, Math.min(1, (t - .31) / .24));
       motion.model.scale.setScalar(1 - Math.max(0, (t - .79) / .21));
     }
+    if (t >= .55) grab(motion);
     if (t === 1) cancelPickup();
   }
 
+  function grab(motion) {
+    if (motion.grabbed) return;
+    motion.grabbed = true;
+    motion.onGrab?.();
+  }
+
   function cancelPickup() {
-    if (!state.pickupMotion) return;
-    state.pickupMotion.model.removeFromParent();
+    const motion = state.pickupMotion;
+    if (!motion) return;
+    grab(motion);
+    motion.model.removeFromParent();
     state.pickupMotion = null;
+    game.equipment.refresh();
   }
 
-  function startDrink(id) {
+  /** Eat or drink item `id` from Rom's hand ('eat' takes bites, 'drink' tips it back). */
+  function startConsume(id, kind = 'drink') {
+    rom.drinkProp.clear();
     game.itemModels.build(id, rom.drinkProp);
-    state.drinkMotion = {id, time:0};
+    rom.drinkProp.scale.setScalar(1);
+    state.drinkMotion = {id, kind, time:0, bites:0};
+    game.equipment.refresh();
   }
 
-  function updateDrink(dt) {
+  function updateConsume(dt) {
     const motion = state.drinkMotion;
     if (!motion) return;
     motion.time += dt;
+    if (motion.kind === 'eat') {
+      const duration = 1.7;
+      const t = Math.min(1, motion.time / duration);
+      const lift = Math.min(1, t / .2, (1 - t) / .14);
+      // Three bites: the hand bobs to the mouth and the food gets smaller.
+      const bites = Math.min(3, Math.floor(Math.max(0, t - .18) / .22) + (t > .18 ? 1 : 0));
+      const bob = t > .18 && t < .86 ? Math.abs(Math.sin((t - .18) / .22 * Math.PI)) : 0;
+      if (bites > motion.bites) { motion.bites = bites; audio.play('chew'); }
+      rightArm.rotation.x = -2.35 * lift + .25 * bob;
+      rightArm.rotation.z = -.62 * lift;
+      rom.drinkProp.rotation.x = .4 * lift;
+      rom.drinkProp.scale.setScalar(Math.max(.15, 1 - motion.bites * .27));
+      rom.head && (rom.head.rotation.x = .12 * bob);
+      rom.firstHeld.position.set(.22 - .2 * lift, -.21 + .1 * lift - .03 * bob, -.69 + .3 * lift);
+      rom.firstHeld.rotation.x = .5 * lift;
+      rom.firstHeld.scale.setScalar(.68 * Math.max(.15, 1 - motion.bites * .27));
+      if (t === 1) cancelConsume();
+      return;
+    }
     const t = Math.min(1, motion.time / 1.4);
     const lift = Math.min(1, t / .29, (1 - t) / .29);
     rightArm.rotation.x = -2.63 * lift;
@@ -126,31 +217,35 @@ export function createAnimation(game) {
     rom.drinkProp.rotation.x = 1.25 * lift;
     rom.firstHeld.position.set(.22 - .19 * lift, -.21 + .13 * lift, -.69 + .31 * lift);
     rom.firstHeld.rotation.x = 1.16 * lift;
-    if (t === 1) { cancelDrink(); audio.play('burp'); }
+    if (t === 1) { cancelConsume(); audio.play('burp'); }
   }
 
-  function cancelDrink() {
+  function cancelConsume() {
     rom.drinkProp.clear();
+    rom.drinkProp.scale.setScalar(1);
     state.drinkMotion = null;
     rom.firstHeld.position.set(.22, -.21, -.69);
-    rom.firstHeld.rotation.x = 0;
+    rom.firstHeld.rotation.set(0, 0, 0);
+    rom.firstHeld.scale.setScalar(.68);
     game.equipment.refresh();
   }
 
   function update(dt) {
+    updateAttack(dt);
     updateBody();
     updateEmote(dt);
     updatePickup(dt);
-    updateDrink(dt);
+    updateConsume(dt);
   }
 
   function reset() {
     cancelPickup();
-    if (state.drinkMotion) cancelDrink();
+    if (state.drinkMotion) cancelConsume();
+    state.attack = null;
     state.emote = null;
     for (const {arm} of limbs) arm.rotation.z = 0;
     updateEmote(0);
   }
 
-  return {startEmote, stopEmote, startPickup, startDrink, update, updateEmote, reset};
+  return {startEmote, stopEmote, startPickup, startConsume, startAttack, update, updateEmote, reset};
 }

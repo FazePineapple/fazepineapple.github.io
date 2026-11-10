@@ -22,5 +22,6 @@
  */
 import caretaker from './caretaker.js';
 import classmate from './classmate.js';
+import teachers from './teachers.js';
 
-export const dialogues = {caretaker, classmate};
+export const dialogues = {caretaker, classmate, teachers};

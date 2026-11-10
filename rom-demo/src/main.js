@@ -28,6 +28,8 @@ import {createVitals} from './player/vitals.js';
 import {createAnimation} from './player/animation.js';
 import {createActions} from './player/actions.js';
 import {createSeating} from './player/seating.js';
+import {createPhotos} from './player/photos.js';
+import {createVehicles} from './vehicles/car.js';
 import {emotes} from './player/emotes.js';
 import {createInventory} from './items/inventory.js';
 import {createItemModels} from './items/item-models.js';
@@ -124,6 +126,8 @@ export function boot() {
   game.actions = createActions(game);
   game.pickups = createPickups(game);
   game.seating = createSeating(game);
+  game.vehicles = createVehicles(game);
+  game.photos = createPhotos(game);
   game.zones = createZones(game);
   game.npcs = createNpcs(game);
   game.interactions = createInteractions(game);
@@ -151,6 +155,7 @@ export function boot() {
   };
   function beginDeath() {
     if (state.deathTime) return;
+    game.vehicles.exit();
     state.deathTime = .001; state.emote = null;
     panels.close({relock:false});
     input.release();
@@ -161,6 +166,7 @@ export function boot() {
     bus.emit('player:died');
   }
   function placeAtSpawn() {
+    game.vehicles.exit();
     state.climbing = null;
     state.seat = null;
     movement.setJetpack(false, true);
@@ -202,6 +208,7 @@ export function boot() {
       flags:[...game.story.flags],
       quests:game.quests.serialize(),
       hour:+sky.hour().toFixed(3),
+      photos:game.photos.serialize(),
       ...pickups.serialize(),
     };
   }
@@ -218,8 +225,9 @@ export function boot() {
     for (const flag of saved.flags ?? []) game.story.flags.add(flag);
     game.quests.restore(saved.quests);
     sky.setHour(saved.hour);
+    game.photos.restore(saved.photos);
   }
-  bus.on('*', (payload, type) => { if (/^(quest|item|flag):/.test(type)) dirty = true; });
+  bus.on('*', (payload, type) => { if (/^(quest|item|flag|photo):/.test(type)) dirty = true; });
   window.addEventListener('pagehide', persist);
   document.addEventListener('visibilitychange', () => { if (document.hidden) persist(); });
 
@@ -332,7 +340,7 @@ export function boot() {
   let lockedNoticeTime = 0;
   function updateDoors(dt) {
     const door = campus.door;
-    const near = Math.abs(position.x - door.x) < 2.25 && Math.abs(position.z - door.z) < 2.45 && position.y < 2.8;
+    const near = !state.vehicle && Math.abs(position.x - door.x) < 2.25 && Math.abs(position.z - door.z) < 2.45 && position.y < 2.8;
     // At night the door stays shut from outside; from inside it still lets Rom out.
     const lockedOut = !game.schedule.isSchoolOpen() && position.z > door.z;
     lockedNoticeTime = Math.max(0, lockedNoticeTime - dt);
@@ -365,6 +373,7 @@ export function boot() {
     const visibleFloor = indoor ? interior.floorAt(x) : null;
     for (const floor of interior.floors) floor.chunk.visible = floor === visibleFloor || (floor === interior.floors[0] && nearDoor);
     combat.setCourtyardVisible(campus.chunk.visible, interior.floors[0].chunk.visible);
+    game.vehicles.car.group.visible = campus.chunk.visible;
     const isVisible = (px, pz, py) => collision.inside(px, pz, py) ? interior.floorAt(px).chunk.visible : campus.chunk.visible;
     pickups.updateVisibility(isVisible);
     npcs.updateVisibility(isVisible);
@@ -386,7 +395,8 @@ export function boot() {
     } else if (unpaused) {
       updateDoors(dt);
       movement.update(dt, input);
-      combat.update(dt, rom.player, amount => game.damage(amount, 'Robotas smogė'));
+      combat.update(dt, rom.player, amount => { if (!state.vehicle) game.damage(amount, 'Robotas smogė'); });
+      game.photos.update(dt);
       actions.update(dt, input.sprayHeld);
       vitals.update(dt);
       hud.updateVitals(state);
@@ -405,8 +415,14 @@ export function boot() {
       game.zones.update(position);
       pollClock += dt;
       if (pollClock > .5) { pollClock = 0; game.quests.poll(); questsChanged = true; }
+      game.interactions.update(dt);
       const action = game.interactions.nearest();
-      hud.updatePrompt(dt, action && settings.label('KeyE') + ' · ' + action.label);
+      const useKey = settings.label('KeyE');
+      const held = game.interactions.holdProgress;
+      const filled = Math.ceil(held * 6);
+      hud.updatePrompt(dt, action && (held && action.hold
+        ? action.hold.label[0].toUpperCase() + action.hold.label.slice(1) + ' ' + '▰'.repeat(filled) + '▱'.repeat(6 - filled)
+        : useKey + ' · ' + action.label + (action.hold ? ' · laikyk ' + useKey + ' – ' + action.hold.label : '')));
       const waypoint = game.waypoints.current();
       const distance = waypoint ? Math.hypot(waypoint.x - position.x, waypoint.z - position.z) : 0;
       // Hide the marker once Rom is standing at the target.
